@@ -1,15 +1,18 @@
+import { signIn } from "@/lib/auth";
 import { colors, fonts, globalStyles, spacing } from "@/styles/global";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useState } from "react";
+import { router } from "expo-router";
+import { useRef, useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -17,6 +20,31 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const headerHeight = useHeaderHeight();
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const submitting = useRef(false);
+
+  async function handleLogin() {
+    if (submitting.current) return;
+    setErrorMessage("");
+    if (!email.trim() || !password) {
+      setErrorMessage("Enter your email and password.");
+      return;
+    }
+    submitting.current = true;
+    setIsSubmitting(true);
+    try {
+      await signIn(email, password);
+      setPassword("");
+      router.replace("/");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Login failed. Try again.");
+    } finally {
+      submitting.current = false;
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <SafeAreaView
@@ -47,6 +75,7 @@ export default function LoginScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="email"
+              editable={!isSubmitting}
             />
 
             <Text style={styles.label}>Password</Text>
@@ -61,25 +90,28 @@ export default function LoginScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="current-password"
+              editable={!isSubmitting}
             />
 
-            {/* Connect authentication before enabling these controls. */}
-            <Pressable
-              style={styles.submit}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: true }}
-              disabled
-            >
-              <Text style={styles.submitText}>Submit</Text>
-            </Pressable>
+           {errorMessage ? (
+              <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                {errorMessage}
+              </Text>
+            ) : null}
 
             <Pressable
-              style={styles.forgotButton}
+              onPress={handleLogin}
+              style={[styles.submit, isSubmitting && styles.disabled]}
               accessibilityRole="button"
-              accessibilityState={{ disabled: true }}
-              disabled
+              accessibilityLabel="Submit login"
+              accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
+              disabled={isSubmitting}
             >
-              <Text style={styles.forgotText}>Forgot password?</Text>
+              {isSubmitting ? (
+                <ActivityIndicator color={colors.surface} />
+              ) : (
+                <Text style={styles.submitText}>Submit</Text>
+              )}
             </Pressable>
           </View>
         </ScrollView>
@@ -111,7 +143,13 @@ const styles = StyleSheet.create({
   submit: {
     ...globalStyles.button,
     marginTop: spacing.sm,
-    opacity: 0.6,
+  },
+  disabled: { opacity: 0.6 },
+  errorText: {
+    color: "#B91C1C",
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    marginBottom: spacing.md,
   },
   submitText: globalStyles.buttonText,
   forgotButton: {

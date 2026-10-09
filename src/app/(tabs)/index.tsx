@@ -1,51 +1,95 @@
+import { getCurrentUser, signOut, type AuthUser } from "@/lib/auth";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Link } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Link, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [retry, setRetry] = useState(0);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setLoading(true);
+    setErrorMessage("");
+    void getCurrentUser().then((account) => {
+      if (active) setUser(account);
+    }).catch((error: unknown) => {
+      if (active) setErrorMessage(error instanceof Error ? error.message : "Could not load your account.");
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => { active = false; };
+  }, [retry]));
+
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setErrorMessage("");
+    try {
+      await signOut();
+      setUser(null);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Logout failed. Try again.");
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Text style={styles.brand}>Chartineer</Text>
-
-        <Link href="/login" asChild>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open login"
-            style={({ pressed }) => [
-              styles.loginButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons name="person-outline" size={24} color="#2563EB" />
-          </Pressable>
-        </Link>
+        {!loading && !user ? (
+          <Link href="/login" asChild>
+            <Pressable accessibilityRole="button" accessibilityLabel="Open login" style={styles.loginButton}>
+              <Ionicons name="person-outline" size={24} color="#2563EB" />
+            </Pressable>
+          </Link>
+        ) : null}
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Welcome to Chartineer</Text>
-        <Text style={styles.subtitle}>
-          Your next discovery starts here.
-        </Text>
-
+        <Text style={styles.subtitle}>Your next discovery starts here.</Text>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Get started</Text>
-          <Text style={styles.cardDescription}>
-            Sign in to access your account.
-          </Text>
-
-          <Link href="/login" asChild>
-            <Pressable
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.signInButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.signInText}>Sign in</Text>
-            </Pressable>
-          </Link>
+          {loading ? <ActivityIndicator color="#2563EB" /> : user ? (
+            <>
+              <Text style={styles.cardTitle}>You are signed in</Text>
+              <Text style={styles.cardDescription}>{user.email}</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleLogout}
+                disabled={loggingOut}
+                accessibilityState={{ disabled: loggingOut, busy: loggingOut }}
+                style={[styles.signInButton, loggingOut && styles.pressed]}
+              >
+                <Text style={styles.signInText}>{loggingOut ? "Signing out…" : "Log out"}</Text>
+              </Pressable>
+            </>
+          ) : !errorMessage ? (
+            <>
+              <Text style={styles.cardTitle}>Get started</Text>
+              <Text style={styles.cardDescription}>Sign in to access your account.</Text>
+              <Link href="/login" asChild>
+                <Pressable accessibilityRole="button" style={styles.signInButton}>
+                  <Text style={styles.signInText}>Sign in</Text>
+                </Pressable>
+              </Link>
+            </>
+          ) : null}
+          {errorMessage ? (
+            <>
+              <Text style={styles.cardDescription} accessibilityLiveRegion="polite">{errorMessage}</Text>
+              <Pressable accessibilityRole="button" style={styles.signInButton} onPress={() => setRetry((value) => value + 1)}>
+                <Text style={styles.signInText}>Retry</Text>
+              </Pressable>
+            </>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>

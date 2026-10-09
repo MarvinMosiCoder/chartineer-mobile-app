@@ -8,7 +8,7 @@ This guide documents Chartineer's existing setup as of October 9, 2026. Commands
 Expo application -> HTTP API in backend/server.mjs -> PostgreSQL
 ```
 
-The backend holds the database credentials. The application will call API endpoints using an API address. App-to-API requests and authentication endpoints have not been implemented yet.
+The backend holds the database credentials. The app calls `/auth/login`, saves its session token with SecureStore, and uses `/auth/me` and `/auth/logout` to restore the account and sign out. See the [login guide](login.md) for the files and request flow.
 
 ## Prerequisites
 
@@ -19,7 +19,8 @@ The backend holds the database credentials. The application will call API endpoi
 | PostgreSQL | 14 or newer for the migration tool's supported range | Stores data |
 | pgAdmin or psql | A working local connection | Creates the database and inspects tables |
 | Editor | VS Code or another editor | Edits code |
-| App viewer | Expo Go compatible with SDK 55, an emulator, or a browser | Opens the app |
+| App viewer | Expo Go compatible with SDK 55 on Android or iOS | Opens the native login flow |
+| Android Studio and SDK tools | Android Emulator and `adb` available | Runs the Android emulator |
 
 The mobile package uses Expo 55, React Native 0.83, and React 19.2. Check `package.json` before changing Expo APIs and use the [SDK 55 reference](https://docs.expo.dev/versions/v55.0.0/).
 
@@ -120,7 +121,7 @@ Inside `backend/`:
 npm run migrate -- up
 ```
 
-This creates `users` and records the migration in `pgmigrations`. Follow the [migration guide](migrations.md) for schema details and future changes. Use existing migration files when setting up another database.
+This applies both existing migrations: `create-users` and `create-sessions`, then records them in `pgmigrations`. Follow the [migration guide](migrations.md) for schema details and future changes. Use the existing migration files when setting up another database; create a new migration only for a new schema change.
 
 ### 6. Start the API
 
@@ -149,9 +150,25 @@ Expected response:
 }
 ```
 
-`/health` executes `SELECT 1`. It verifies connectivity; inspect migration history separately to confirm the users schema exists. Failed database queries return HTTP 503 with `database: "unavailable"` and log the reason in the API terminal.
+`/health` executes `SELECT 1`. It verifies connectivity; inspect migration history separately to confirm both tables exist. Failed database queries return HTTP 503 with `database: "unavailable"` and log the reason in the API terminal.
 
-### 7. Start Expo
+### 7. Configure the mobile API address
+
+Create `.env.local` at the project root, beside the mobile `package.json`. For the Android emulator:
+
+```dotenv
+EXPO_PUBLIC_API_URL=http://10.0.2.2:3000
+```
+
+Use the [API address table](#api-addresses) for other devices. Restart Expo after adding or changing the variable. Keep database credentials in `backend/.env`; this public variable contains the API URL.
+
+### 8. Create a local login account
+
+Migrations create tables without creating an account. Follow [Create your first test account](login.md#4-create-your-first-test-account) to run `seed-user.mjs` with an email and password entered through PowerShell prompts. If you already created an account, use its existing credentials.
+
+The seed script leaves an existing account's password unchanged. Its current validation checks 8 characters but its error message says 15; the guide uses 15 or more. See [Known login cleanup](troubleshooting.md#known-login-cleanup) for this mismatch.
+
+### 9. Start Expo and the emulator
 
 In another terminal at the root:
 
@@ -159,7 +176,9 @@ In another terminal at the root:
 npx expo start
 ```
 
-Scan the QR code with compatible Expo Go, press `a` for a configured Android emulator, or press `w` for a browser. Put a physical phone and computer on the same Wi-Fi for LAN access. See [Expo start developing](https://docs.expo.dev/get-started/start-developing/).
+Start a configured emulator in Android Studio and wait for Android's Home screen. Run `adb devices` in another terminal and confirm it reports `device`, then press `a` in Expo. See [Android emulator setup and recovery](android-emulator.md) if the emulator is offline or already running without responding.
+
+For a physical phone, scan the QR code with compatible Expo Go and put the phone and computer on the same Wi-Fi. Pressing `w` opens the browser preview, but the current authentication helper uses native SecureStore and needs a separate browser storage approach before web login works. See [Expo start developing](https://docs.expo.dev/get-started/start-developing/).
 
 ## Daily development
 
@@ -171,12 +190,14 @@ Scan the QR code with compatible Expo Go, press `a` for a configured Android emu
 | Check lint | Root | `npx expo lint` |
 | Check TypeScript | Root | `npx tsc --noEmit` |
 | Check API syntax | Root | `node --check backend/server.mjs` |
+| Check Android device | Any terminal with SDK tools on PATH | `adb devices` |
+| Refresh generated route types | Root | `npx expo customize tsconfig.json` |
 
 Keep Expo and the API in separate terminals. PostgreSQL must also be running.
 
-## API addresses for later app integration
+## API addresses
 
-The login form does not yet call the API. When adding requests, choose the address for the device running the app:
+Set `EXPO_PUBLIC_API_URL` to the address for the device running the app:
 
 | App runs on | Local development API address |
 | --- | --- |
@@ -190,6 +211,8 @@ Use `ipconfig` on Windows to find the active adapter's IPv4 address. A phone's `
 
 These HTTP addresses are for local development. A deployed API should use HTTPS.
 
-## Next development steps
+## Verify login and continue development
 
-Create accounts with password hashing, implement sign-in and sessions, connect the login form, and implement password reset. Submit and Forgot password currently remain disabled in the layout.
+Use the [login test checklist](login.md#10-run-the-checks-and-test) to check correct and incorrect credentials, session restoration, expiry, and logout. Keep PostgreSQL, the API, Expo, and the emulator running while testing.
+
+Public registration and password reset are future features. The current login screen has an active Submit button; Forgot password is not rendered, although its styles remain in the file.

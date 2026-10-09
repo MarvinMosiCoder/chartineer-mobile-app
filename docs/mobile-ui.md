@@ -12,6 +12,8 @@ src/
       index.tsx
   styles/
     global.ts
+  lib/
+    auth.ts
 ```
 
 ## Routes and tabs
@@ -20,12 +22,15 @@ src/
 | --- | --- |
 | `src/app/_layout.tsx` | Loads fonts and defines the root Stack |
 | `src/app/(tabs)/_layout.tsx` | Defines tabs and tab label styling |
-| `src/app/(tabs)/index.tsx` | Home and the login icon |
-| `src/app/login.tsx` | Login form layout |
+| `src/app/(tabs)/index.tsx` | Home, session restoration, login icon, and logout |
+| `src/app/login.tsx` | Login form, Submit request, loading state, and errors |
+| `src/lib/auth.ts` | API requests and native session storage; not a route |
 
 The root Stack contains `(tabs)` and `login`. The group contains Home and a Tabs layout for bottom navigation. Login is opened through the home-page icon or Sign in button. See [Expo Router tabs](https://docs.expo.dev/router/advanced/tabs/).
 
 Home uses a `Link` imported from `expo-router` with `href="/login"` and `asChild` around a Pressable. The stack supplies the back button after navigation.
+
+After login, `router.replace("/")` opens `src/app/(tabs)/index.tsx`. Route groups do not add their name to the URL. Keep Home in that group; a separate starter `src/app/index.tsx` duplicates the Home URL. If TypeScript rejects `/` despite the correct files, see [Refresh generated route types](troubleshooting.md#home-route-is-rejected-by-typescript).
 
 To add a tab, create its screen in `src/app/(tabs)/`, then add a `Tabs.Screen` whose `name` matches the filename without its extension. Keep reusable components, hooks, utilities, and styles outside `src/app/`, where files are treated as routes.
 
@@ -82,9 +87,15 @@ Screen content needs its own Text and TextInput styles too.
 
 ## Login status
 
-The layout includes a Chartineer text logo, email and password fields, Submit, and Forgot password. SafeAreaView and a keyboard-aware scroll layout handle screen insets and keyboard space. The fields use local React state; the password field has `secureTextEntry`.
+The layout includes a Chartineer text logo, email and password fields, Submit, and an error message. SafeAreaView and a keyboard-aware scroll layout handle screen insets and keyboard space. The fields use local React state; the password field has `secureTextEntry`.
 
-Submit and Forgot password are currently disabled. Enabling them requires the upcoming authentication and password-reset endpoints and frontend requests.
+Submit calls `signIn(email, password)`, shows a spinner while waiting, and disables editing and further submissions during the request. On success, the helper saves the session token in SecureStore and the screen returns to Home. Errors remain visible on the form.
+
+Home calls `getCurrentUser()` when it becomes focused. It shows the account email and a Log out button for a valid session, Sign in for no session, and Retry when the account request fails. `signOut()` revokes the session in the API before clearing the device token.
+
+Forgot password is currently absent from the rendered form; its styles remain. Password-reset endpoints and email delivery have not been implemented. Follow the [login guide](login.md) for the complete flow and tests.
+
+The current Retry callback intentionally depends on its retry counter to run again when the user taps Retry. ESLint reports that dependency as unnecessary because the callback body does not read the counter; see [Known login cleanup](troubleshooting.md#known-login-cleanup).
 
 ## Native configuration
 

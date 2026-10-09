@@ -1,8 +1,29 @@
 # Build login step by step
 
-You make the application edits and run the commands in this guide. The examples match the existing Expo SDK 55 app, Express 5 API, and `public.users` migration. This guide does not apply those changes automatically.
+You make the application edits and run the commands in this guide. The examples match the existing Expo SDK 55 app and Express 5 API. Login, password hashing, sessions, Home session restoration, and logout are now present in the repository; the steps remain available as a reference for rebuilding or extending the flow.
 
-Work through the steps in order. Paths are relative to the project root unless a command says otherwise.
+On this existing checkout, start with the runtime checklist below and Step 10. When building the same feature in a fresh project, work through the implementation steps in order. Paths are relative to the project root unless a command says otherwise.
+
+## Current setup and runtime checklist
+
+| Part | Current implementation |
+| --- | --- |
+| Login screen | `src/app/login.tsx`: validates fields, submits, shows errors, returns to Home |
+| Native API helper | `src/lib/auth.ts`: saves the token and restores or clears the session |
+| Home | `src/app/(tabs)/index.tsx`: account display, Retry, and logout |
+| API | `backend/server.mjs`: login, session verification, logout, and health |
+| Password helpers | `backend/passwords.mjs`: salted scrypt hashing and verification |
+| Test account | `backend/seed-user.mjs`: local account creation |
+| Database | Existing `create-users` and `create-sessions` SQL migrations |
+
+Before testing, confirm these four services are ready:
+
+1. PostgreSQL is running and both migrations are applied.
+2. `npm run dev` is running in `backend/`, and `http://localhost:3000/health` reports a connected database.
+3. The emulator has reached Android's Home screen and `adb devices` reports `device`.
+4. Expo is running at the project root, and `.env.local` contains `EXPO_PUBLIC_API_URL=http://10.0.2.2:3000` for the Android emulator.
+
+See [Emulator setup and recovery](android-emulator.md) for port 5554, offline devices, and an already-running process. See [Troubleshooting](troubleshooting.md) for route-type refresh and the remaining password-rule and dependency cleanup.
 
 The flow will be:
 
@@ -12,11 +33,11 @@ The flow will be:
 4. Save the session token on Android with SecureStore.
 5. Return to Home, restore the session after reopening, and support logout.
 
-Home remains public. Forgot password will need a separate email and reset-token flow; its existing button stays disabled for this lesson.
+Home remains public. Forgot password needs a separate email and reset-token flow and is currently absent from the rendered form. Public registration is also future work; this guide creates test accounts locally.
 
 ## 1. Install the two dependencies
 
-From the project root, install the SDK-compatible mobile package:
+Both dependencies are already installed in the existing checkout. On a new project, install the SDK-compatible mobile package from the project root:
 
 ```powershell
 npx expo install expo-secure-store
@@ -31,11 +52,13 @@ cd backend
 npm install express-rate-limit
 ```
 
-The backend uses Node's built-in `scrypt` for password hashing and `crypto` for random session tokens.
+The backend uses Node's built-in `scrypt` for password hashing and `crypto` for random session tokens. SecureStore belongs to the mobile package. Its extra entry in the current backend dependencies can be removed as described in [Known login cleanup](troubleshooting.md#known-login-cleanup).
 
 ## 2. Create a sessions migration
 
-In the `backend` terminal:
+The repository already includes `1791522946123_create-sessions.sql`. For this checkout, use that file and run `npm run migrate -- up` in `backend/` as needed. Do not generate another migration that creates the same table.
+
+For a fresh project that does not yet have a sessions migration, run in the `backend` terminal:
 
 ```powershell
 npm run migrate -- create create-sessions --migration-file-language sql
@@ -104,6 +127,8 @@ Each account receives a random salt. The `scrypt-v1` prefix identifies this exac
 ## 4. Create your first test account
 
 Create `backend/seed-user.mjs`:
+
+The example below uses a 15-character minimum. The current file checks 8 characters while its message says 15; align the check and message when you edit it. Entering 15 or more characters satisfies either check.
 
 ```js
 import pg from "pg";
@@ -481,7 +506,7 @@ errorText: {
 },
 ```
 
-Keep the existing logo, input styles, keyboard handling, and Forgot password button.
+Keep the existing logo, input styles, and keyboard handling. Implement the Forgot password control when its reset flow is ready.
 
 ## 9. Show the session on Home and add logout
 
@@ -516,6 +541,8 @@ export default function HomeScreen() {
       if (active) setLoading(false);
     });
     return () => { active = false; };
+    // Retry intentionally recreates this focus callback to load the account again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [retry]));
 
   async function handleLogout() {
@@ -590,6 +617,8 @@ export default function HomeScreen() {
 ```
 
 `useFocusEffect` checks the saved session whenever Home becomes active, including after login. See the [Expo Router hooks reference](https://docs.expo.dev/router/reference/hooks/). Loading and connection failures have their own UI so the app does not silently treat a failed request as an expired session.
+
+The current application has the same Retry behavior without the two explanatory comments, so lint reports an unnecessary dependency warning. The example documents that deliberate dependency with a suppression limited to that line. Keep `[retry]` if you use this counter-based Retry pattern; removing it prevents Retry from recreating the callback.
 
 ## 10. Run the checks and test
 
