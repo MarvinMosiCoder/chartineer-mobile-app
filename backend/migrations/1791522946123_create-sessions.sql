@@ -1,0 +1,13 @@
+-- Up Migration
+CREATE TABLE public.sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX sessions_user_id_index ON public.sessions(user_id);
+CREATE INDEX sessions_expires_at_index ON public.sessions(expires_at);
+
+-- Down Migration
+DROP TABLE public.sessions;
