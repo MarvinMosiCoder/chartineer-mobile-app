@@ -10,7 +10,7 @@ Expo application -> HTTP API in backend/server.mjs -> PostgreSQL
 
 The backend holds the database credentials. The app calls `/auth/login`, saves its session token with SecureStore, and uses `/auth/me` and `/auth/logout` to restore the account and sign out. See the [login guide](login.md) for the files and request flow.
 
-The default route `/` opens the login screen directly. Successful login opens `/dashboard`, and logout returns to `/`. The splash stays visible while fonts load; follow the [mobile UI guide](mobile-ui.md#logo-before-the-login-screen) to add a custom opening logo. A saved token does not currently skip login on a normal launch.
+The default route `/` opens the login screen directly, with email/password icons, an eye toggle, error feedback, and Submit. Successful login opens `/dashboard`, and logout returns to `/`. Android's custom opening logo is configured at `assets/images/system-logo/system-logo.png`; the splash stays visible while fonts load. See the [mobile UI guide](mobile-ui.md#logo-before-the-login-screen) for configuration and native build checks. A saved token does not currently skip login on a normal launch.
 
 ## Prerequisites
 
@@ -217,4 +217,4 @@ These HTTP addresses are for local development. A deployed API should use HTTPS.
 
 Use the [login test checklist](login.md#10-run-the-checks-and-test) to check correct and incorrect credentials, session restoration, expiry, and logout. Keep PostgreSQL, the API, Expo, and the emulator running while testing.
 
-Public registration and password reset are future features. The current login screen has an active Submit button; Forgot password is not rendered, although its styles remain in the file.
+Public registration and password reset are future features. The current login screen has separate eye and Submit buttons, shows request errors, and uses the shared green primary color. Forgot password and its former local styles are absent.

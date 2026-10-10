@@ -10,7 +10,7 @@ Get-Location
 
 ## Expo cannot find a package
 
-Install mobile dependencies from the root using `npx expo install <package>`. The dashboard imports `@expo/vector-icons/Ionicons`.
+Install mobile dependencies from the root using `npx expo install <package>`. Both login and dashboard import `@expo/vector-icons/Ionicons`.
 
 If a package is installed but Metro still cannot find it, stop Expo with Ctrl+C and restart from the root:
 
@@ -87,7 +87,29 @@ A normal launch at `/` currently opens login even if a SecureStore token exists.
 
 ## Custom splash logo does not appear
 
-The custom Chartineer logo is still pending. Follow [Logo before the login screen](mobile-ui.md#logo-before-the-login-screen) for the image path, plugin configuration, native rebuild, and preview limitations.
+Android's custom image is configured at `assets/images/system-logo/system-logo.png`, with width 76 on a blue background. Confirm that path exists and build a new native app after changing it. The current image configuration is Android-only. Follow [Logo before the login screen](mobile-ui.md#logo-before-the-login-screen) for the exact plugin entry and preview limitations.
+
+## Login logo image cannot be resolved
+
+The login Image uses `require("@/assets/images/system-logo/system-logo.png")`. Confirm the PNG exists in the root assets directory and keep `"@/assets/*": ["./assets/*"]` in `tsconfig.json` alongside the general `@/*` alias. Restart Expo after editing aliases. See [Login logo and asset aliases](mobile-ui.md#login-logo-and-asset-aliases).
+
+## Login controls reported as unused
+
+The current complete screen uses `handleLogin`, `errorMessage`, and `setShowPassword`. If ESLint reports them as unused after editing JSX, check these connections:
+
+| Warning | Connection to restore |
+| --- | --- |
+| `handleLogin` is defined but never used | Submit needs `onPress={handleLogin}` |
+| `errorMessage` is assigned a value but never used | Render the error Text with `{errorMessage}` above Submit |
+| `setShowPassword` is assigned a value but never used | The eye button needs `onPress={() => setShowPassword((value) => !value)}` |
+
+Keep both Pressables: eye inside the password row, Submit below the error message. If several pieces are missing, use the [complete login file in Step 8](login.md#8-connect-the-existing-login-screen) to restore imports, state, inputs, both buttons, errors, and styles together.
+
+## Login icons are above the fields or the eye does not work
+
+Each icon and TextInput must share a `View` using `styles.inputRow`. Include the eye button in the password row too. Each TextInput should use `styles.inputText`; the row draws the surrounding border and background.
+
+The password input needs `secureTextEntry={!showPassword}`. Plain `secureTextEntry` keeps it masked regardless of the eye button's state. See [Login icons and password visibility](mobile-ui.md#login-icons-and-password-visibility) and the complete Step 8 example.
 
 ## Expo cannot connect to port 5554
 
@@ -141,9 +163,8 @@ The suppression applies to that line only and does not change runtime behavior. 
 
 - In `backend/seed-user.mjs`, the minimum-length check is 8 while the error message says 15. The guide's example uses 15. Align the rule and message when editing the script.
 - `backend/package.json` includes an unnecessary `expo-secure-store` dependency. The mobile package already contains it. To remove the backend copy, run `npm uninstall expo-secure-store` inside `backend/`; keep the mobile dependency and its app config plugin.
-- Forgot password styles remain in the login screen, but its control and reset endpoints have not been implemented.
+- Password reset and public registration remain future features. The former Forgot password styles have been removed from the current screen.
 - The dashboard retains the former welcome content, a `Home` tab title, and the component name `HomeScreen`. These can be updated without changing its `/dashboard` route.
-- Login's hidden header no longer supplies top spacing, but its SafeAreaView still omits the top edge. Follow the [layout adjustment](mobile-ui.md#moving-an-older-checkout-to-login-first).
 
 These are code cleanup or future-feature items. Runtime connection errors still require a running API and a responsive emulator.
 

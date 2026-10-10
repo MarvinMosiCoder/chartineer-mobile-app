@@ -63,41 +63,67 @@ The current checkout already uses these routes. For an older checkout:
    edges={["top", "bottom", "left", "right"]}
    ```
 
-The current login file still lists only bottom, left, and right edges; adding top is a remaining layout adjustment for the hidden header. See [Expo safe areas](https://docs.expo.dev/develop/user-interface/safe-areas/).
+The current login file already includes all four edges and no longer uses a header-height offset. See [Expo safe areas](https://docs.expo.dev/develop/user-interface/safe-areas/).
 
 To add a tab, create its screen in `src/app/(tabs)/`, then add a `Tabs.Screen` whose `name` matches the filename without its extension. Keep reusable components, hooks, utilities, and styles outside `src/app/`, where files are treated as routes.
 
 ## Logo before the login screen
 
-The opening logo belongs to the native splash screen. `expo-splash-screen` is already installed. The current `app.json` uses a blue `#208AEF` background and configures `assets/images/splash-icon.png` at width 76 for Android. A custom Chartineer logo has not been added yet.
+The opening logo belongs to the native splash screen. `expo-splash-screen` is installed, and the custom image is now present at [assets/images/system-logo/system-logo.png](../assets/images/system-logo/system-logo.png).
 
-To configure your logo:
+The current entry in `app.json` is:
 
-1. Save a PNG logo, preferably with a transparent background, as `assets/images/chartineer-logo.png`.
-2. Replace only the existing `expo-splash-screen` entry in `expo.plugins` with:
+```json
+[
+  "expo-splash-screen",
+  {
+    "backgroundColor": "#208AEF",
+    "android": {
+      "image": "./assets/images/system-logo/system-logo.png",
+      "imageWidth": 76
+    }
+  }
+]
+```
 
-   ```json
-   [
-     "expo-splash-screen",
-     {
-       "backgroundColor": "#208AEF",
-       "image": "./assets/images/chartineer-logo.png",
-       "imageWidth": 160,
-       "resizeMode": "contain"
-     }
-   ]
-   ```
+The custom image is configured for Android. To use it on iOS too, configure `image` and `imageWidth` at the shared plugin level or add an `ios` entry. The current shared background is blue, independently of the green login theme.
 
-   Keep the `expo-router` and `expo-secure-store` plugin entries. This example sets a shared image for Android and iOS instead of an Android-only image override.
+Keep the `expo-router` and `expo-secure-store` entries in `expo.plugins`. The root layout's `preventAutoHideAsync()` and font-loading effect already hold the splash until fonts are ready, then hide it; no timed delay is needed.
 
-3. Keep the root layout's `preventAutoHideAsync()` and font-loading effect. It already hides the splash after fonts load; no timed delay is needed.
-4. Build and install a new native app for configuration changes. Check the final splash in a release build: Expo Go displays the app icon, and development builds do not reproduce every splash property. Restarting Metro alone does not apply native splash changes. See the [SDK 55 splash reference](https://docs.expo.dev/versions/v55.0.0/sdk/splash-screen/).
+After changing the image or plugin settings, build and install a new native app. Check the final splash in a release build: Expo Go displays the app icon, and development builds do not reproduce every splash property. Restarting Metro alone does not apply native splash changes. See the [SDK 55 splash reference](https://docs.expo.dev/versions/v55.0.0/sdk/splash-screen/).
 
-The splash asset and the `Chartineer` text above the login fields are separate. This configuration changes the opening splash, while the form keeps its existing text logo.
+The splash and login form use the same asset in separate places. Android's native splash is configured in `app.json`; the form renders an Image above the `Chartineer` text.
+
+## Login logo and asset aliases
+
+The form's logo uses React Native's `Image` imported from `react-native`:
+
+```tsx
+<Image
+  source={require("@/assets/images/system-logo/system-logo.png")}
+  style={styles.logoImage}
+  resizeMode="contain"
+/>
+```
+
+`logoImage` sets width and height to 120 with `alignSelf: "center"`. The Chartineer text remains directly below it. The image uses the same PNG as the Android splash.
+
+The root `tsconfig.json` now includes both aliases under `compilerOptions.paths`:
+
+```json
+{
+  "@/*": ["./src/*"],
+  "@/assets/*": ["./assets/*"]
+}
+```
+
+The more specific `@/assets/*` mapping resolves files in the root assets directory. Keep it when rebuilding the login screen from the complete example. Restart Expo CLI after changing path aliases. See [Expo TypeScript path aliases](https://docs.expo.dev/guides/typescript/#path-aliases-optional).
 
 ## Shared styles
 
-`src/styles/global.ts` exports `colors`, `spacing`, `fonts`, and `globalStyles`. The `@/` alias points to `src/` through the root TypeScript configuration.
+`src/styles/global.ts` exports `colors`, `spacing`, `fonts`, and `globalStyles`. The general `@/*` alias points to `src/`; the more specific `@/assets/*` alias points to the root assets directory.
+
+`colors.primary` is now green (`#0F7058`). The login logo text, Submit button, and active tab tint use this shared color. The dashboard's existing screen styles still contain hardcoded blue values, and the native splash keeps its own blue background in `app.json`.
 
 ```tsx
 import { colors, fonts, globalStyles } from "@/styles/global";
@@ -146,15 +172,31 @@ tabBarLabelStyle: {
 
 Screen content needs its own Text and TextInput styles too.
 
+## Login icons and password visibility
+
+`src/app/index.tsx` uses the installed `@expo/vector-icons/Ionicons` package. No extra icon dependency is needed for this screen.
+
+| Control | Icon | Behavior |
+| --- | --- | --- |
+| Email field | `mail-outline` | Decorative icon beside the email input |
+| Password field | `lock-closed-outline` | Decorative icon beside the password input |
+| Password visibility button | `eye-outline` / `eye-off-outline` | Shows or hides the password |
+
+Each field is wrapped in `View style={styles.inputRow}`. That row sets the border, background, horizontal layout, and spacing. The TextInput uses `styles.inputText` with `flex: 1` to fill the available width. The password row also contains the eye Pressable with a 48-by-48 minimum touch area. The former `globalStyles.input` style is still available for other fields, but this login form uses the row/text styles.
+
+Password visibility starts as `false`. The eye button calls `setShowPassword((value) => !value)`, while the input uses `secureTextEntry={!showPassword}`. Its icon and accessibility label describe the available action: Show password or Hide password. The decorative icons use `accessible={false}`. See the [React Native 0.83 TextInput reference](https://reactnative.dev/docs/0.83/textinput#securetextentry).
+
+The eye button and Submit are separate Pressables. The eye changes visibility; Submit calls `handleLogin`. Both fields and the eye button are disabled while submitting. For the complete file, including both controls, errors, imports, state, and styles, use [Step 8 of the login guide](login.md#8-connect-the-existing-login-screen).
+
 ## Login status
 
-The layout includes a Chartineer text logo, email and password fields, Submit, and an error message. SafeAreaView and a keyboard-aware scroll layout handle screen insets and keyboard space. The fields use local React state; the password field has `secureTextEntry`.
+The layout includes a 120-by-120 system logo image, Chartineer text, icon-bearing email/password fields, a visibility button, Submit, and an error message. SafeAreaView includes top, bottom, left, and right edges. KeyboardAvoidingView and ScrollView handle keyboard space; the form stays centered with a maximum width of 420.
 
-Submit calls `signIn(email, password)`, shows a spinner while waiting, and disables editing and further submissions during the request. On success, the helper saves the session token in SecureStore and opens `/dashboard`. Errors remain visible on the form.
+Submit's `onPress={handleLogin}` checks empty fields, calls `signIn(email, password)`, shows a spinner while waiting, and prevents duplicate requests. On success, the helper saves the session token in SecureStore, the screen clears the password and resets visibility, then opens `/dashboard`. `errorMessage` is rendered above Submit for validation and API failures.
 
 The dashboard calls `getCurrentUser()` when it becomes focused. It shows the account email and a Log out button for a valid session, Sign in for no session, and Retry when the account request fails. `signOut()` revokes the session in the API before clearing the device token, then navigation returns to `/`.
 
-Forgot password is currently absent from the rendered form; its styles remain. Password-reset endpoints and email delivery have not been implemented. Follow the [login guide](login.md) for the complete flow and tests.
+Forgot password and its old local styles are absent from the current screen. Password-reset endpoints and email delivery have not been implemented. Follow the [login guide](login.md) for the complete flow and tests.
 
 The Retry callback intentionally depends on its counter to run again when the user taps Retry. A comment and a lint suppression limited to the dependency line now explain that behavior. Keep `[retry]` for this implementation; see [Why the Retry dependency is intentional](troubleshooting.md#why-the-retry-dependency-is-intentional).
 

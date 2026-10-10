@@ -8,7 +8,7 @@ On this existing checkout, start with the runtime checklist below and Step 10. W
 
 | Part | Current implementation |
 | --- | --- |
-| Login screen | `src/app/index.tsx`: default route `/`, validates fields, submits, shows errors, opens `/dashboard` |
+| Login screen | `src/app/index.tsx`: default route `/`, email/password icons, visibility toggle, validation, Submit, errors, opens `/dashboard` |
 | Native API helper | `src/lib/auth.ts`: saves the token and restores or clears the session |
 | Dashboard | `src/app/(tabs)/dashboard.tsx`: account display, Retry, and logout back to `/` |
 | API | `backend/server.mjs`: login, session verification, logout, and health |
@@ -35,7 +35,7 @@ The flow will be:
 
 Opening `/` displays login directly. Login currently does not check for a saved token, so a normal launch at `/` shows the form again. The dashboard has no navigation guard and still renders a Sign in state when no session exists. Automatically skipping login and restricting dashboard navigation are future work. Forgot password needs a separate email and reset-token flow and is currently absent from the rendered form. Public registration is also future work; this guide creates test accounts locally.
 
-The root layout holds the native splash while fonts load. Follow [Logo before the login screen](mobile-ui.md#logo-before-the-login-screen) to add a custom logo; that asset and configuration are still pending.
+The root layout holds the native splash while fonts load. Android now uses `assets/images/system-logo/system-logo.png` at width 76 on a blue background; see [Logo before the login screen](mobile-ui.md#logo-before-the-login-screen) for the current configuration and native build checks. The form uses the green shared primary color (`#0F7058`).
 
 ## 1. Install the two dependencies
 
@@ -430,85 +430,258 @@ Only the token is stored on the device. The helper removes it when the server re
 
 ## 8. Connect the existing login screen
 
-Edit `src/app/index.tsx`. On an older checkout, first follow [Moving an older checkout to login first](mobile-ui.md#moving-an-older-checkout-to-login-first) to rename the routes and update the layouts. The root Stack registers `index` and `(tabs)` with hidden headers; the tab screen is named `dashboard`.
+`src/app/index.tsx` now contains the complete login form with icons, password visibility, errors, and Submit. On this checkout, use the file as the reference and continue to the runtime checks in Step 10.
 
-Add these imports, change the existing React import, and add `ActivityIndicator` to your existing `react-native` import list:
+To rebuild or restore the screen, replace the entire contents of `src/app/index.tsx` with the file below. It includes every import, state variable, handler, logo, input row, button, error display, and local style together. The existing `src/lib/auth.ts` and `src/styles/global.ts` from earlier steps must be present, along with `assets/images/system-logo/system-logo.png` and the [asset alias](mobile-ui.md#login-logo-and-asset-aliases) in `tsconfig.json`.
+
+On an older checkout, first follow [Moving an older checkout to login first](mobile-ui.md#moving-an-older-checkout-to-login-first). The root Stack registers `index` and `(tabs)` with hidden headers; the tab screen is named `dashboard`.
 
 ```tsx
 import { signIn } from "@/lib/auth";
+import { colors, fonts, globalStyles, spacing } from "@/styles/global";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
-```
+import {
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-Inside `LoginScreen`, after the existing email/password state, add:
+export default function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const submitting = useRef(false);
 
-```tsx
-const [isSubmitting, setIsSubmitting] = useState(false);
-const [errorMessage, setErrorMessage] = useState("");
-const submitting = useRef(false);
+  async function handleLogin() {
+    if (submitting.current) return;
 
-async function handleLogin() {
-  if (submitting.current) return;
-  setErrorMessage("");
-  if (!email.trim() || !password) {
-    setErrorMessage("Enter your email and password.");
-    return;
+    setErrorMessage("");
+    if (!email.trim() || !password) {
+      setErrorMessage("Enter your email and password.");
+      return;
+    }
+
+    submitting.current = true;
+    setIsSubmitting(true);
+
+    try {
+      await signIn(email, password);
+      setPassword("");
+      setShowPassword(false);
+      router.replace("/dashboard");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Login failed. Try again.",
+      );
+    } finally {
+      submitting.current = false;
+      setIsSubmitting(false);
+    }
   }
-  submitting.current = true;
-  setIsSubmitting(true);
-  try {
-    await signIn(email, password);
-    setPassword("");
-    router.replace("/dashboard");
-  } catch (error) {
-    setErrorMessage(error instanceof Error ? error.message : "Login failed. Try again.");
-  } finally {
-    submitting.current = false;
-    setIsSubmitting(false);
-  }
+
+  return (
+    <SafeAreaView
+      style={styles.screen}
+      edges={["top", "bottom", "left", "right"]}
+    >
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.form}>
+            <Image
+              source={require("@/assets/images/system-logo/system-logo.png")}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.logo}>Chartineer</Text>
+            <Text style={styles.label}>Email</Text>
+            <View style={styles.inputRow}>
+              <Ionicons
+                name="mail-outline"
+                size={22}
+                color={colors.muted}
+                accessible={false}
+              />
+              <TextInput
+                style={styles.inputText}
+                accessibilityLabel="Email"
+                placeholder="you@example.com"
+                placeholderTextColor={colors.muted}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                editable={!isSubmitting}
+                underlineColorAndroid="transparent"
+              />
+            </View>
+
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.inputRow}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={22}
+                color={colors.muted}
+                accessible={false}
+              />
+              <TextInput
+                style={styles.inputText}
+                accessibilityLabel="Password"
+                placeholder="Enter your password"
+                placeholderTextColor={colors.muted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="current-password"
+                editable={!isSubmitting}
+                underlineColorAndroid="transparent"
+              />
+              <Pressable
+                onPress={() => setShowPassword((value) => !value)}
+                style={styles.eyeButton}
+                disabled={isSubmitting}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  showPassword ? "Hide password" : "Show password"
+                }
+                accessibilityState={{ disabled: isSubmitting }}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={22}
+                  color={colors.muted}
+                  accessible={false}
+                />
+              </Pressable>
+            </View>
+
+            {errorMessage ? (
+              <Text
+                style={styles.errorText}
+                accessibilityLiveRegion="polite"
+              >
+                {errorMessage}
+              </Text>
+            ) : null}
+
+            <Pressable
+              onPress={handleLogin}
+              style={[styles.submit, isSubmitting && styles.disabled]}
+              disabled={isSubmitting}
+              accessibilityRole="button"
+              accessibilityLabel="Submit login"
+              accessibilityState={{
+                disabled: isSubmitting,
+                busy: isSubmitting,
+              }}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color={colors.surface} />
+              ) : (
+                <Text style={styles.submitText}>Submit</Text>
+              )}
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
 }
+
+const styles = StyleSheet.create({
+  ...globalStyles,
+  content: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: spacing.lg,
+  },
+  form: {
+    width: "100%",
+    maxWidth: 420,
+    alignSelf: "center",
+  },
+  logo: {
+    fontSize: 34,
+    fontFamily: fonts.extraBold,
+    color: colors.primary,
+    textAlign: "center",
+    marginBottom: 40,
+  },
+  logoImage: {
+    width: 120,
+    height: 120,
+    alignSelf: "center",
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 54,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    marginBottom: 20,
+  },
+  inputText: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 54,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    fontSize: 16,
+    fontFamily: fonts.regular,
+    color: colors.text,
+  },
+  eyeButton: {
+    width: 48,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  submit: {
+    ...globalStyles.button,
+    marginTop: spacing.sm,
+  },
+  disabled: {
+    opacity: 0.6,
+  },
+  errorText: {
+    color: "#B91C1C",
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    marginBottom: spacing.md,
+  },
+  submitText: globalStyles.buttonText,
+});
 ```
 
-Add `editable={!isSubmitting}` to **both** `TextInput` components.
+The eye Pressable calls `setShowPassword`; the password TextInput reads it through `secureTextEntry={!showPassword}`. Submit calls `handleLogin`, and the conditional Text renders `errorMessage`. Keeping these three connections prevents the unused-variable warnings described in [Login controls reported as unused](troubleshooting.md#login-controls-reported-as-unused).
 
-Replace the existing disabled Submit `Pressable` and the old authentication comment immediately before it with:
+Both input rows contain their icons, and the password row also contains the eye button. Local `inputRow` and `inputText` styles divide the border/background and text layout. SafeAreaView includes all four edges. On successful login, the screen clears the password and resets visibility before replacing the route with `/dashboard`.
 
-```tsx
-{errorMessage ? (
-  <Text style={styles.errorText} accessibilityLiveRegion="polite">
-    {errorMessage}
-  </Text>
-) : null}
-
-<Pressable
-  onPress={handleLogin}
-  style={[styles.submit, isSubmitting && styles.disabled]}
-  accessibilityRole="button"
-  accessibilityLabel="Submit login"
-  accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
-  disabled={isSubmitting}
->
-  {isSubmitting ? (
-    <ActivityIndicator color={colors.surface} />
-  ) : (
-    <Text style={styles.submitText}>Submit</Text>
-  )}
-</Pressable>
-```
-
-In `StyleSheet.create`, remove `opacity: 0.6` from the `submit` style, and add these styles:
-
-```tsx
-disabled: { opacity: 0.6 },
-errorText: {
-  color: "#B91C1C",
-  fontFamily: fonts.regular,
-  fontSize: 14,
-  marginBottom: spacing.md,
-},
-```
-
-Keep the existing logo, input styles, and keyboard handling. With login's header hidden, remove the old `useHeaderHeight` import, hook call, and keyboard offset. Include `"top"` in the SafeAreaView edges along with bottom, left, and right. The current file still needs that top-edge adjustment. Implement the Forgot password control when its reset flow is ready.
+Save the file, run `npx expo lint` and `npx tsc --noEmit` from the project root, then perform Step 10's emulator checks with the API running.
 
 ## 9. Show the session on the dashboard and add logout
 
@@ -640,9 +813,13 @@ Keep both the API and Expo servers running. Open the app in your Android emulato
 | Action | Expected result |
 | --- | --- |
 | Open the app normally at `/` | Login appears directly; no welcome page before the form |
+| Inspect the form heading | Centered system logo appears above the green Chartineer text |
+| Inspect the email and password fields | Mail and lock icons sit inside their bordered rows |
+| Tap the eye button twice | Password becomes visible, then masked again; button icon/label change |
 | Submit empty fields | Email/password prompt; no API call |
 | Use a wrong password | Same incorrect-credentials message as an unknown email |
 | Use the seeded account | Submit shows a spinner, then `/dashboard` displays your email |
+| Inspect controls during a pending request | Inputs, eye toggle, and Submit are disabled |
 | Reload while retaining the `/dashboard` route | Dashboard checks the saved session and displays your email |
 | Close and launch normally at `/` | Login appears again; the saved token does not automatically skip the form |
 | Log out, then launch at `/` | Login appears; the session row and device token were deleted |
@@ -651,7 +828,7 @@ Keep both the API and Expo servers running. Open the app in your Android emulato
 | Sign in, then use Android Back | The replaced login screen is not the previous screen |
 | Repeatedly fail login more than five times | Rate-limit message; wait for the window or restart the local API |
 
-For the saved-session and connection-error cases, keep or reopen the `/dashboard` route without submitting login again. A normal launch at `/` tests the login-first behavior instead. Test the custom splash separately after adding the asset and making a native build using the [splash guide](mobile-ui.md#logo-before-the-login-screen).
+For the saved-session and connection-error cases, keep or reopen the `/dashboard` route without submitting login again. A normal launch at `/` tests the login-first behavior instead. The custom Android splash is configured; verify its final appearance after making a native build using the [splash guide](mobile-ui.md#logo-before-the-login-screen).
 
 In pgAdmin, connected to `chartineer`, you can inspect accounts and sessions without displaying their secrets:
 
