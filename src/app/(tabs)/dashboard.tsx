@@ -1,6 +1,6 @@
 import { getCurrentUser, signOut, type AuthUser } from "@/lib/auth";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Link, useFocusEffect } from "expo-router";
+import { Link, router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -23,7 +23,10 @@ export default function HomeScreen() {
     }).finally(() => {
       if (active) setLoading(false);
     });
-    return () => { active = false; };
+   return () => { active = false; };
+
+    // Changing retry reruns the account request when Retry is tapped.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [retry]));
 
   async function handleLogout() {
@@ -33,6 +36,7 @@ export default function HomeScreen() {
     try {
       await signOut();
       setUser(null);
+      router.replace("/");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Logout failed. Try again.");
     } finally {
@@ -41,11 +45,11 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.screen} edges={["top", "bottom", "left", "right"]}>
       <View style={styles.header}>
         <Text style={styles.brand}>Chartineer</Text>
         {!loading && !user ? (
-          <Link href="/login" asChild>
+          <Link href="/" asChild>
             <Pressable accessibilityRole="button" accessibilityLabel="Open login" style={styles.loginButton}>
               <Ionicons name="person-outline" size={24} color="#2563EB" />
             </Pressable>
@@ -75,7 +79,7 @@ export default function HomeScreen() {
             <>
               <Text style={styles.cardTitle}>Get started</Text>
               <Text style={styles.cardDescription}>Sign in to access your account.</Text>
-              <Link href="/login" asChild>
+              <Link href="/" asChild>
                 <Pressable accessibilityRole="button" style={styles.signInButton}>
                   <Text style={styles.signInText}>Sign in</Text>
                 </Pressable>

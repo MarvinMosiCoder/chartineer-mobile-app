@@ -1,6 +1,6 @@
 # Setup and daily development
 
-This guide documents Chartineer's existing setup as of October 9, 2026. Commands use PowerShell on Windows and npm. There are two independent packages: the Expo app at the root and the Node.js API in `backend/`.
+This guide documents Chartineer's existing setup as of October 10, 2026. Commands use PowerShell on Windows and npm. There are two independent packages: the Expo app at the root and the Node.js API in `backend/`.
 
 ## How the parts connect
 
@@ -9,6 +9,8 @@ Expo application -> HTTP API in backend/server.mjs -> PostgreSQL
 ```
 
 The backend holds the database credentials. The app calls `/auth/login`, saves its session token with SecureStore, and uses `/auth/me` and `/auth/logout` to restore the account and sign out. See the [login guide](login.md) for the files and request flow.
+
+The default route `/` opens the login screen directly. Successful login opens `/dashboard`, and logout returns to `/`. The splash stays visible while fonts load; follow the [mobile UI guide](mobile-ui.md#logo-before-the-login-screen) to add a custom opening logo. A saved token does not currently skip login on a normal launch.
 
 ## Prerequisites
 

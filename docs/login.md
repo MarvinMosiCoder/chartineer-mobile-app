@@ -1,6 +1,6 @@
 # Build login step by step
 
-You make the application edits and run the commands in this guide. The examples match the existing Expo SDK 55 app and Express 5 API. Login, password hashing, sessions, Home session restoration, and logout are now present in the repository; the steps remain available as a reference for rebuilding or extending the flow.
+You make the application edits and run the commands in this guide. The examples match the existing Expo SDK 55 app and Express 5 API. Login as the default route, password hashing, sessions, dashboard account loading, and logout are now present in the repository; the steps remain available as a reference for rebuilding or extending the flow.
 
 On this existing checkout, start with the runtime checklist below and Step 10. When building the same feature in a fresh project, work through the implementation steps in order. Paths are relative to the project root unless a command says otherwise.
 
@@ -8,9 +8,9 @@ On this existing checkout, start with the runtime checklist below and Step 10. W
 
 | Part | Current implementation |
 | --- | --- |
-| Login screen | `src/app/login.tsx`: validates fields, submits, shows errors, returns to Home |
+| Login screen | `src/app/index.tsx`: default route `/`, validates fields, submits, shows errors, opens `/dashboard` |
 | Native API helper | `src/lib/auth.ts`: saves the token and restores or clears the session |
-| Home | `src/app/(tabs)/index.tsx`: account display, Retry, and logout |
+| Dashboard | `src/app/(tabs)/dashboard.tsx`: account display, Retry, and logout back to `/` |
 | API | `backend/server.mjs`: login, session verification, logout, and health |
 | Password helpers | `backend/passwords.mjs`: salted scrypt hashing and verification |
 | Test account | `backend/seed-user.mjs`: local account creation |
@@ -31,9 +31,11 @@ The flow will be:
 2. Submit email and password to Express.
 3. Verify the password and create a PostgreSQL session.
 4. Save the session token on Android with SecureStore.
-5. Return to Home, restore the session after reopening, and support logout.
+5. Open the dashboard, load the saved session whenever it becomes focused, and return to login after logout.
 
-Home remains public. Forgot password needs a separate email and reset-token flow and is currently absent from the rendered form. Public registration is also future work; this guide creates test accounts locally.
+Opening `/` displays login directly. Login currently does not check for a saved token, so a normal launch at `/` shows the form again. The dashboard has no navigation guard and still renders a Sign in state when no session exists. Automatically skipping login and restricting dashboard navigation are future work. Forgot password needs a separate email and reset-token flow and is currently absent from the rendered form. Public registration is also future work; this guide creates test accounts locally.
+
+The root layout holds the native splash while fonts load. Follow [Logo before the login screen](mobile-ui.md#logo-before-the-login-screen) to add a custom logo; that asset and configuration are still pending.
 
 ## 1. Install the two dependencies
 
@@ -428,7 +430,7 @@ Only the token is stored on the device. The helper removes it when the server re
 
 ## 8. Connect the existing login screen
 
-Edit `src/app/login.tsx`.
+Edit `src/app/index.tsx`. On an older checkout, first follow [Moving an older checkout to login first](mobile-ui.md#moving-an-older-checkout-to-login-first) to rename the routes and update the layouts. The root Stack registers `index` and `(tabs)` with hidden headers; the tab screen is named `dashboard`.
 
 Add these imports, change the existing React import, and add `ActivityIndicator` to your existing `react-native` import list:
 
@@ -457,7 +459,7 @@ async function handleLogin() {
   try {
     await signIn(email, password);
     setPassword("");
-    router.replace("/");
+    router.replace("/dashboard");
   } catch (error) {
     setErrorMessage(error instanceof Error ? error.message : "Login failed. Try again.");
   } finally {
@@ -506,23 +508,23 @@ errorText: {
 },
 ```
 
-Keep the existing logo, input styles, and keyboard handling. Implement the Forgot password control when its reset flow is ready.
+Keep the existing logo, input styles, and keyboard handling. With login's header hidden, remove the old `useHeaderHeight` import, hook call, and keyboard offset. Include `"top"` in the SafeAreaView edges along with bottom, left, and right. The current file still needs that top-edge adjustment. Implement the Forgot password control when its reset flow is ready.
 
-## 9. Show the session on Home and add logout
+## 9. Show the session on the dashboard and add logout
 
-Edit `src/app/(tabs)/index.tsx`.
+Edit `src/app/(tabs)/dashboard.tsx`.
 
-Keep its existing `StyleSheet.create` block. Replace the imports and the entire `HomeScreen` function above that block with:
+Keep its existing `StyleSheet.create` block. Replace the imports and the entire screen function above that block with the example below. The current component is still named `HomeScreen`; this example renames it to `DashboardScreen` without changing the route.
 
 ```tsx
 import { getCurrentUser, signOut, type AuthUser } from "@/lib/auth";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Link, useFocusEffect } from "expo-router";
+import { Link, router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function HomeScreen() {
+export default function DashboardScreen() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -552,6 +554,7 @@ export default function HomeScreen() {
     try {
       await signOut();
       setUser(null);
+      router.replace("/");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Logout failed. Try again.");
     } finally {
@@ -560,11 +563,11 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.screen} edges={["top", "bottom", "left", "right"]}>
       <View style={styles.header}>
         <Text style={styles.brand}>Chartineer</Text>
         {!loading && !user ? (
-          <Link href="/login" asChild>
+          <Link href="/" asChild>
             <Pressable accessibilityRole="button" accessibilityLabel="Open login" style={styles.loginButton}>
               <Ionicons name="person-outline" size={24} color="#2563EB" />
             </Pressable>
@@ -594,7 +597,7 @@ export default function HomeScreen() {
             <>
               <Text style={styles.cardTitle}>Get started</Text>
               <Text style={styles.cardDescription}>Sign in to access your account.</Text>
-              <Link href="/login" asChild>
+              <Link href="/" asChild>
                 <Pressable accessibilityRole="button" style={styles.signInButton}>
                   <Text style={styles.signInText}>Sign in</Text>
                 </Pressable>
@@ -616,9 +619,9 @@ export default function HomeScreen() {
 }
 ```
 
-`useFocusEffect` checks the saved session whenever Home becomes active, including after login. See the [Expo Router hooks reference](https://docs.expo.dev/router/reference/hooks/). Loading and connection failures have their own UI so the app does not silently treat a failed request as an expired session.
+`useFocusEffect` checks the saved session whenever the dashboard becomes active, including after login. See the [Expo Router hooks reference](https://docs.expo.dev/router/reference/hooks/). Loading and connection failures have their own UI so the app does not silently treat a failed request as an expired session.
 
-The current application has the same Retry behavior without the two explanatory comments, so lint reports an unnecessary dependency warning. The example documents that deliberate dependency with a suppression limited to that line. Keep `[retry]` if you use this counter-based Retry pattern; removing it prevents Retry from recreating the callback.
+The current dashboard and this example document the deliberate Retry dependency with a comment and a suppression limited to that line. ESLint otherwise warns because the callback does not read the counter. Keep `[retry]` for this pattern: tapping Retry changes the counter, creates a new callback, and reruns the request while the dashboard is focused. Removing it prevents Retry from recreating the callback. See [Why the Retry dependency is intentional](troubleshooting.md#why-the-retry-dependency-is-intentional).
 
 ## 10. Run the checks and test
 
@@ -636,14 +639,19 @@ Keep both the API and Expo servers running. Open the app in your Android emulato
 
 | Action | Expected result |
 | --- | --- |
+| Open the app normally at `/` | Login appears directly; no welcome page before the form |
 | Submit empty fields | Email/password prompt; no API call |
 | Use a wrong password | Same incorrect-credentials message as an unknown email |
-| Use the seeded account | Submit shows a spinner, then Home displays your email |
-| Reload or reopen the app | Home loads the saved session and displays your email |
-| Log out, then reload | Home shows Sign in; the session row was deleted |
-| Stop the API while signed in, then reopen | Connection error and Retry; token remains saved |
+| Use the seeded account | Submit shows a spinner, then `/dashboard` displays your email |
+| Reload while retaining the `/dashboard` route | Dashboard checks the saved session and displays your email |
+| Close and launch normally at `/` | Login appears again; the saved token does not automatically skip the form |
+| Log out, then launch at `/` | Login appears; the session row and device token were deleted |
+| Stop the API, then reload or refocus `/dashboard` | Connection error and Retry; token remains saved |
 | Restart the API and tap Retry | Account loads again |
+| Sign in, then use Android Back | The replaced login screen is not the previous screen |
 | Repeatedly fail login more than five times | Rate-limit message; wait for the window or restart the local API |
+
+For the saved-session and connection-error cases, keep or reopen the `/dashboard` route without submitting login again. A normal launch at `/` tests the login-first behavior instead. Test the custom splash separately after adding the asset and making a native build using the [splash guide](mobile-ui.md#logo-before-the-login-screen).
 
 In pgAdmin, connected to `chartineer`, you can inspect accounts and sessions without displaying their secrets:
 
@@ -652,7 +660,7 @@ SELECT id, email, created_at FROM public.users;
 SELECT user_id, created_at, expires_at FROM public.sessions;
 ```
 
-To test expiry, update only your test account's sessions using its actual email, then reopen the app:
+To test expiry, update only your test account's sessions using its actual email, then reload or refocus `/dashboard` without submitting login again:
 
 ```sql
 UPDATE public.sessions
@@ -662,7 +670,7 @@ WHERE user_id = (
 );
 ```
 
-Home should return to Sign in. Sign in again to create a fresh session.
+The dashboard should show Sign in and the helper should clear the rejected token. Tap Sign in to open `/`, then authenticate again to create a fresh session. The dashboard currently renders this signed-out state rather than automatically redirecting on expiry.
 
 If the emulator cannot reach `/health`, resolve the API connection before troubleshooting the form. The backend must be running on port 3000; check Windows Firewall if the emulator connection is blocked. For other setup problems, see [Troubleshooting](troubleshooting.md).
 

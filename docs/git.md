@@ -85,7 +85,7 @@ Open each conflicted file. Review the local and incoming versions, keep the inte
 git add -- README.md
 ```
 
-Replace that example filename with each file you resolved. For this project's initial merge, the newer local app contained Poppins, SecureStore, tabs, backend configuration, and documentation. The incoming starter `src/app/index.tsx` duplicated the existing tab Home route and was removed from the merge result. For future conflicts, inspect both sides because the incoming branch may contain new work.
+Replace that example filename with each file you resolved. During this project's initial merge, the incoming starter `src/app/index.tsx` duplicated the tab Home route and was removed. The current route structure has since changed: `src/app/index.tsx` is now login, and `src/app/(tabs)/dashboard.tsx` is the screen after sign-in. Preserve those current routes when resolving conflicts; inspect both sides because the incoming branch may contain new work. See [Routes and tabs](mobile-ui.md#routes-and-tabs).
 
 Run the [project checks](troubleshooting.md#verification-commands), then complete the merge:
 

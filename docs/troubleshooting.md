@@ -10,7 +10,7 @@ Get-Location
 
 ## Expo cannot find a package
 
-Install mobile dependencies from the root using `npx expo install <package>`. The existing home screen imports `@expo/vector-icons/Ionicons`.
+Install mobile dependencies from the root using `npx expo install <package>`. The dashboard imports `@expo/vector-icons/Ionicons`.
 
 If a package is installed but Metro still cannot find it, stop Expo with Ctrl+C and restart from the root:
 
@@ -64,9 +64,9 @@ CORS controls browser access to responses. Native clients do not use browser COR
 
 The current login helper stores tokens with native SecureStore. Browser login needs its own session-storage implementation even when CORS is configured correctly.
 
-## Home route is rejected by TypeScript
+## Login or dashboard route is rejected by TypeScript
 
-If `router.replace("/")` reports `ts(2345)` while Home exists at `src/app/(tabs)/index.tsx`, inspect `.expo/types/router.d.ts`. The correct generated routes include `/` and `/(tabs)`. Generated entries such as `/index` or `/../lib/auth` indicate incorrect route types.
+If `router.replace("/dashboard")` or `router.replace("/")` reports `ts(2345)`, confirm the files are `src/app/(tabs)/dashboard.tsx` and `src/app/index.tsx`. Login owns `/`; dashboard owns `/dashboard`. Inspect `.expo/types/router.d.ts` for those routes. Old `/login` entries or entries such as `/../lib/auth` can indicate stale or incorrect route types.
 
 Regenerate types from the project root:
 
@@ -75,9 +75,19 @@ npx expo customize tsconfig.json
 npx tsc --noEmit
 ```
 
-In VS Code, use Ctrl+Shift+P -> TypeScript: Restart TS Server if the old underline remains. Keep `router.replace("/")`; generated type files are refreshed by Expo and should not be edited or committed. See [Expo typed routes](https://docs.expo.dev/router/reference/typed-routes/).
+In VS Code, use Ctrl+Shift+P -> TypeScript: Restart TS Server if the old underline remains. Keep `router.replace("/dashboard")` after login and `router.replace("/")` after logout. Generated type files are refreshed by Expo and should not be edited or committed. See [Expo typed routes](https://docs.expo.dev/router/reference/typed-routes/).
 
 The installed SDK 55 route watcher showed a Windows path-handling problem after files were added or renamed. A CLI refresh regenerated the correct routes in this workspace. If incorrect entries return, refresh again and restart Expo to rebuild its watcher context.
+
+## Login appears again after Submit or reopening
+
+If Submit returns to login, check its success handler in `src/app/index.tsx`: it must use `router.replace("/dashboard")`. The old `router.replace("/")` now points to login itself.
+
+A normal launch at `/` currently opens login even if a SecureStore token exists. The dashboard checks the saved session when focused, but login has no startup session check. This behavior does not by itself mean the token was lost. Automatically opening the dashboard for an existing session needs a separate startup check.
+
+## Custom splash logo does not appear
+
+The custom Chartineer logo is still pending. Follow [Logo before the login screen](mobile-ui.md#logo-before-the-login-screen) for the image path, plugin configuration, native rebuild, and preview limitations.
 
 ## Expo cannot connect to port 5554
 
@@ -99,18 +109,41 @@ For an Android emulator, use `http://10.0.2.2:3000` in the root `.env.local`. Ve
 | Email or password is incorrect | Use the seeded account's credentials; reseeding an existing email does not change its password |
 | Relation users or sessions does not exist | Apply existing migrations in `backend/` |
 | Too many login attempts | Wait for the 15-minute window; the local in-memory limit resets if the API restarts |
-| Home still shows Sign in after login | Confirm Home calls `getCurrentUser()` and reload the account after navigation |
+| Dashboard still shows Sign in after login | Confirm login opens `/dashboard`, then check `getCurrentUser()` and session storage |
 | Session expired | Sign in again to create a new session |
 | Token cannot be saved in a browser | Use Android/iOS for this native helper; implement web session storage separately |
 
 `/auth/me` returning `401` without a token is expected. `/health` proves database connectivity; the [login checklist](login.md#10-run-the-checks-and-test) verifies the actual sign-in, reopen, expiry, and logout behavior.
+
+## Why the Retry dependency is intentional
+
+The dashboard's focus callback lists `[retry]`, but its body does not read the counter. ESLint therefore reports `react-hooks/exhaustive-deps` as an unnecessary dependency unless the intentional use is documented with a suppression.
+
+The counter acts as a trigger:
+
+1. Tapping Retry increments `retry`.
+2. React creates a new callback because that dependency changed.
+3. `useFocusEffect` reruns the account request while the dashboard is focused.
+
+Keep `[retry]` for this implementation. Removing it stops the Retry button from triggering another request. The current dashboard has these comments immediately above the dependency line:
+
+```tsx
+return () => { active = false; };
+
+// Changing retry reruns the account request when Retry is tapped.
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [retry]));
+```
+
+The suppression applies to that line only and does not change runtime behavior. If the warning returns, check that the directive is immediately above `}, [retry]));`. A future refactor can use a shared loading function called by both focus and Retry, removing the counter and its suppression together.
 
 ## Known login cleanup
 
 - In `backend/seed-user.mjs`, the minimum-length check is 8 while the error message says 15. The guide's example uses 15. Align the rule and message when editing the script.
 - `backend/package.json` includes an unnecessary `expo-secure-store` dependency. The mobile package already contains it. To remove the backend copy, run `npm uninstall expo-secure-store` inside `backend/`; keep the mobile dependency and its app config plugin.
 - Forgot password styles remain in the login screen, but its control and reset endpoints have not been implemented.
-- Home's `[retry]` callback dependency intentionally recreates the focus effect when Retry is pressed. ESLint warns because the callback body does not read the counter. The [Home example](login.md#9-show-the-session-on-home-and-add-logout) now includes an explanation and a lint suppression limited to that dependency line. A stable loading function called explicitly by both focus and Retry is another possible refactor.
+- The dashboard retains the former welcome content, a `Home` tab title, and the component name `HomeScreen`. These can be updated without changing its `/dashboard` route.
+- Login's hidden header no longer supplies top spacing, but its SafeAreaView still omits the top edge. Follow the [layout adjustment](mobile-ui.md#moving-an-older-checkout-to-login-first).
 
 These are code cleanup or future-feature items. Runtime connection errors still require a running API and a responsive emulator.
 
@@ -138,7 +171,7 @@ node --check backend/passwords.mjs
 node --check backend/seed-user.mjs
 ```
 
-Root TypeScript checks do not typecheck the `.mjs` backend. Its syntax checks do not verify database connectivity or SQL execution. Use `/health` and inspect `pgmigrations` for those checks, then run the login behavior checklist. Lint currently completes with one nonblocking `retry` dependency warning in the Home screen.
+Root TypeScript checks do not typecheck the `.mjs` backend. Its syntax checks do not verify database connectivity or SQL execution. Use `/health` and inspect `pgmigrations` for those checks, then run the login behavior checklist. The intentional Retry dependency has a suppression limited to that line; it should not produce a lint warning in the current dashboard.
 
 After mobile dependency or Expo configuration changes, diagnose compatibility from the root:
 

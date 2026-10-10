@@ -1,6 +1,5 @@
 import { signIn } from "@/lib/auth";
 import { colors, fonts, globalStyles, spacing } from "@/styles/global";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import {
@@ -19,7 +18,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const headerHeight = useHeaderHeight();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -37,7 +35,7 @@ export default function LoginScreen() {
     try {
       await signIn(email, password);
       setPassword("");
-      router.replace("/");
+      router.replace("/dashboard");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Login failed. Try again.");
     } finally {
@@ -54,7 +52,6 @@ export default function LoginScreen() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={headerHeight}
       >
         <ScrollView
           contentContainerStyle={styles.content}
