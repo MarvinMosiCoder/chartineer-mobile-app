@@ -2,6 +2,26 @@
 
 This guide uses Windows PowerShell, Android Studio, and Expo SDK 55. The development machine has `Pixel_7` and `Medium_Phone_API_37.0` AVDs. Start one emulator at a time while troubleshooting.
 
+## Test login and signup dark mode
+
+Login and signup follow Android's system theme. Public tabs stay black, so their color does not indicate the current system theme. Enable Dark theme in Android Settings to preview the dark authentication palette.
+
+For the `emulator-5554` device used in this session, commands from a terminal with ADB available are:
+
+```powershell
+adb devices -l
+adb -s emulator-5554 shell cmd uimode night
+adb -s emulator-5554 shell cmd uimode night yes
+```
+
+Use the device serial reported by `adb devices -l` if different. Revert to light mode with:
+
+```powershell
+adb -s emulator-5554 shell cmd uimode night no
+```
+
+Open `/login` or `/signup` and check text, input, button, and status bar colors. This app has no in-app light/dark toggle. See [Authentication themes](mobile-ui.md#light-and-dark-loginsignup).
+
 ## Start the app on an emulator
 
 1. Open Android Studio's Device Manager. On the welcome screen, use More Actions -> Virtual Device Manager; inside a project, open the Device Manager tool window.

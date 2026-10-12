@@ -1,8 +1,10 @@
-import { signIn } from "@/lib/auth";
-import { colors, fonts, globalStyles, spacing } from "@/styles/global";
+import { useAuth } from "@/providers/auth-provider";
+import { fonts, spacing } from "@/styles/global";
+import { loginThemes, type LoginTheme } from "@/styles/login-theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router } from "expo-router";
-import { useRef, useState } from "react";
+import { Link, useFocusEffect } from "expo-router";
+import { setStatusBarStyle } from "expo-status-bar";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -13,11 +15,18 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View
+  useColorScheme,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LoginScreen() {
+  const { signIn } = useAuth();
+  const colorScheme = useColorScheme();
+  const mode = colorScheme === "dark" ? "dark" : "light";
+  const theme = loginThemes[mode];
+  const styles = themedStyles[mode];
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -25,10 +34,21 @@ export default function LoginScreen() {
   const [errorMessage, setErrorMessage] = useState("");
   const submitting = useRef(false);
 
+  useFocusEffect(
+    useCallback(() => {
+      setStatusBarStyle(mode === "dark" ? "light" : "dark");
+
+      return () => {
+        setStatusBarStyle("dark");
+      };
+    }, [mode]),
+  );
+
   async function handleLogin() {
     if (submitting.current) return;
 
     setErrorMessage("");
+
     if (!email.trim() || !password) {
       setErrorMessage("Enter your email and password.");
       return;
@@ -41,7 +61,6 @@ export default function LoginScreen() {
       await signIn(email, password);
       setPassword("");
       setShowPassword(false);
-      router.replace("/dashboard");
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Login failed. Try again.",
@@ -71,6 +90,7 @@ export default function LoginScreen() {
               style={styles.logoImage}
               resizeMode="contain"
             />
+
             <View style={styles.wordmark}>
               <Text
                 style={styles.wordmarkText}
@@ -81,19 +101,40 @@ export default function LoginScreen() {
                 Chart<Text style={styles.wordmarkAccent}>ineer</Text>
               </Text>
             </View>
+
+            <Link href="/" dismissTo asChild>
+              <Pressable
+                style={styles.backButton}
+                accessibilityRole="button"
+                accessibilityLabel="Back to homepage"
+                disabled={isSubmitting}
+                accessibilityState={{ disabled: isSubmitting }}
+              >
+                <Ionicons
+                  name="arrow-back"
+                  size={22}
+                  color={theme.text}
+                  accessible={false}
+                />
+                <Text style={styles.backButtonText}>Back to home</Text>
+              </Pressable>
+            </Link>
+
             <Text style={styles.label}>Email</Text>
             <View style={styles.inputRow}>
               <Ionicons
                 name="mail-outline"
                 size={22}
-                color={colors.muted}
+                color={theme.muted}
                 accessible={false}
               />
+
               <TextInput
                 style={styles.inputText}
                 accessibilityLabel="Email"
                 placeholder="you@example.com"
-                placeholderTextColor={colors.muted}
+                placeholderTextColor={theme.muted}
+                selectionColor={theme.primary}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -110,14 +151,16 @@ export default function LoginScreen() {
               <Ionicons
                 name="lock-closed-outline"
                 size={22}
-                color={colors.muted}
+                color={theme.muted}
                 accessible={false}
               />
+
               <TextInput
                 style={styles.inputText}
                 accessibilityLabel="Password"
                 placeholder="Enter your password"
-                placeholderTextColor={colors.muted}
+                placeholderTextColor={theme.muted}
+                selectionColor={theme.primary}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -127,6 +170,7 @@ export default function LoginScreen() {
                 editable={!isSubmitting}
                 underlineColorAndroid="transparent"
               />
+
               <Pressable
                 onPress={() => setShowPassword((value) => !value)}
                 style={styles.eyeButton}
@@ -140,7 +184,7 @@ export default function LoginScreen() {
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={22}
-                  color={colors.muted}
+                  color={theme.muted}
                   accessible={false}
                 />
               </Pressable>
@@ -167,9 +211,9 @@ export default function LoginScreen() {
               }}
             >
               {isSubmitting ? (
-                <ActivityIndicator color={colors.surface} />
+                <ActivityIndicator color={theme.onPrimary} />
               ) : (
-                <Text style={styles.submitText}>Submit</Text>
+                <Text style={styles.submitText}>Log in</Text>
               )}
             </Pressable>
           </View>
@@ -179,85 +223,119 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  ...globalStyles,
-  content: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: spacing.lg,
-  },
-  form: {
-    width: "100%",
-    maxWidth: 420,
-    alignSelf: "center",
-  },
-  logo: {
-    fontSize: 34,
-    fontFamily: fonts.extraBold,
-    color: colors.primary,
-    textAlign: "center",
-    marginBottom: 40,
-  },
-  logoImage: {
-    width: 120,
-    height: 120,
-    alignSelf: "center",
-  },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 54,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    marginBottom: 20,
-  },
-  inputText: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 54,
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-    fontSize: 16,
-    fontFamily: fonts.regular,
-    color: colors.text,
-  },
-  eyeButton: {
-    width: 48,
-    minHeight: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  submit: {
-    ...globalStyles.button,
-    marginTop: spacing.sm,
-  },
-  disabled: {
-    opacity: 0.6,
-  },
-  errorText: {
-    color: "#B91C1C",
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    marginBottom: spacing.md,
-  },
-  submitText: globalStyles.buttonText,
+function createStyles(theme: LoginTheme) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    flex: {
+      flex: 1,
+    },
+    content: {
+      flexGrow: 1,
+      justifyContent: "center",
+      padding: spacing.lg,
+    },
+    form: {
+      width: "100%",
+      maxWidth: 420,
+      alignSelf: "center",
+    },
+    logoImage: {
+      width: 120,
+      height: 120,
+      alignSelf: "center",
+    },
     wordmark: {
-    width: "100%",
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-    marginBottom: 40,
-  },
-  wordmarkText: {
-    fontFamily: fonts.semibold,
-    fontSize: 44,
-    letterSpacing: -1,
-    color: "#F2F0EA",
-    textAlign: "center",
-  },
-  wordmarkAccent: {
-    color: "#57CCA7",
-  },
-});
+      width: "100%",
+      paddingHorizontal: 12,
+      paddingVertical: 14,
+      marginBottom: 32,
+    },
+    wordmarkText: {
+      fontFamily: fonts.semibold,
+      fontSize: 44,
+      letterSpacing: -1,
+      color: theme.text,
+      textAlign: "center",
+    },
+    wordmarkAccent: {
+      color: theme.accent,
+    },
+    backButton: {
+      minHeight: 48,
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
+      gap: 8,
+      paddingHorizontal: 8,
+      marginBottom: 16,
+    },
+    backButtonText: {
+      color: theme.text,
+      fontFamily: fonts.regular,
+      fontSize: 14,
+    },
+    label: {
+      color: theme.text,
+      fontFamily: fonts.regular,
+      fontSize: 14,
+      marginBottom: spacing.sm,
+    },
+    inputRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      minHeight: 54,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 12,
+      paddingHorizontal: spacing.md,
+      marginBottom: 20,
+    },
+    inputText: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 54,
+      paddingHorizontal: 12,
+      paddingVertical: 14,
+      fontSize: 16,
+      fontFamily: fonts.regular,
+      color: theme.text,
+    },
+    eyeButton: {
+      width: 48,
+      minHeight: 48,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    submit: {
+      minHeight: 52,
+      backgroundColor: theme.primary,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: spacing.sm,
+    },
+    submitText: {
+      color: theme.onPrimary,
+      fontFamily: fonts.semibold,
+      fontSize: 16,
+    },
+    disabled: {
+      opacity: 0.6,
+    },
+    errorText: {
+      color: theme.error,
+      fontFamily: fonts.regular,
+      fontSize: 14,
+      marginBottom: spacing.md,
+    },
+  });
+}
+
+const themedStyles = {
+  light: createStyles(loginThemes.light),
+  dark: createStyles(loginThemes.dark),
+};

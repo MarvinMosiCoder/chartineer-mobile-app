@@ -10,7 +10,7 @@ Get-Location
 
 ## Expo cannot find a package
 
-Install mobile dependencies from the root using `npx expo install <package>`. Both login and dashboard import `@expo/vector-icons/Ionicons`.
+Install mobile dependencies from the root using `npx expo install <package>`. Login, signup, Home, and the tabs layout use the installed Ionicons package.
 
 If a package is installed but Metro still cannot find it, stop Expo with Ctrl+C and restart from the root:
 
@@ -66,7 +66,7 @@ The current login helper stores tokens with native SecureStore. Browser login ne
 
 ## Login or dashboard route is rejected by TypeScript
 
-If `router.replace("/dashboard")` or `router.replace("/")` reports `ts(2345)`, confirm the files are `src/app/(tabs)/dashboard.tsx` and `src/app/index.tsx`. Login owns `/`; dashboard owns `/dashboard`. Inspect `.expo/types/router.d.ts` for those routes. Old `/login` entries or entries such as `/../lib/auth` can indicate stale or incorrect route types.
+If a Link or navigation call reports `ts(2345)`, confirm the current files: `(tabs)/index.tsx` owns `/`, `login.tsx` owns `/login`, `signup.tsx` owns `/signup`, and `(tabs)/dashboard.tsx` owns `/dashboard`, all under `src/app/`. Inspect `.expo/types/router.d.ts` for these routes. Entries such as `/../lib/auth` can indicate stale or incorrect route types.
 
 Regenerate types from the project root:
 
@@ -75,15 +75,31 @@ npx expo customize tsconfig.json
 npx tsc --noEmit
 ```
 
-In VS Code, use Ctrl+Shift+P -> TypeScript: Restart TS Server if the old underline remains. Keep `router.replace("/dashboard")` after login and `router.replace("/")` after logout. Generated type files are refreshed by Expo and should not be edited or committed. See [Expo typed routes](https://docs.expo.dev/router/reference/typed-routes/).
+In VS Code, use Ctrl+Shift+P -> TypeScript: Restart TS Server if the old underline remains. Current login/logout update AuthProvider; guards handle navigation. Do not restore the old explicit redirects solely to fix stale types. Generated files should not be edited or committed. See [Expo typed routes](https://docs.expo.dev/router/reference/typed-routes/).
 
 The installed SDK 55 route watcher showed a Windows path-handling problem after files were added or renamed. A CLI refresh regenerated the correct routes in this workspace. If incorrect entries return, refresh again and restart Expo to rebuild its watcher context.
 
 ## Login appears again after Submit or reopening
 
-If Submit returns to login, check its success handler in `src/app/index.tsx`: it must use `router.replace("/dashboard")`. The old `router.replace("/")` now points to login itself.
+Check `src/app/login.tsx`: it must call the `signIn` function from `useAuth()`, which stores the token and updates provider `user`. Calling only the helper from `src/lib/auth.ts` would leave navigation guards unaware of the new account.
 
-A normal launch at `/` currently opens login even if a SecureStore token exists. The dashboard checks the saved session when focused, but login has no startup session check. This behavior does not by itself mean the token was lost. Automatically opening the dashboard for an existing session needs a separate startup check.
+A normal launch at `/` opens public Home. AuthProvider checks a saved token during startup. A valid session enables Dashboard; no token or a 401 leaves the app signed out. Other session-check failures show root Retry. Login success normally returns to Home; use its Dashboard action or the Dashboard tab to open the account screen.
+
+## POP_TO warning or signup appears in tabs
+
+`POP_TO` is a stack action emitted by `dismissTo`. If signup is inside `(tabs)`, its Back to home can try to pop to the `index` tab, which cannot handle that action. A file in `(tabs)` can also appear as an automatically discovered tab even without a `Tabs.Screen` entry.
+
+Keep signup at `src/app/signup.tsx`, beside login, matching the root `<Stack.Screen name="signup" />`. The current signup Back to home uses `<Link href="/" replace asChild>`. Reload after moving files. Login still uses `dismissTo` from the root Stack; if changing it, `replace` is the alternative discussed for an explicit return to Home. See [SDK 55 Link](https://docs.expo.dev/versions/v55.0.0/sdk/router/link/).
+
+## Login does not switch to dark mode
+
+Login/signup follow the device theme, not the always-black public tabs. Enable Android's system dark theme. Check `app.json` has `userInterfaceStyle: "automatic"` and that `useColorScheme()` selects the matching palette. There is no manual app theme switch. See [theme testing](android-emulator.md#test-login-and-signup-dark-mode).
+
+Import `setStatusBarStyle` directly from `expo-status-bar`; `StatusBar.setStatusBarStyle` is not the function used by this SDK. Status bar icon color and the form palette are separate settings.
+
+## Signup buttons or policy links do not continue
+
+Google and Apple stay disabled until the agreement checkbox is selected. Enabled provider buttons still show a not-available notice because authentication is not connected. Email signup validates email and shows the same kind of notice; it is not gated by the checkbox. Policy URLs are `null`, so the links show an unpublished notice. These are current UI placeholders, not backend failures.
 
 ## Custom splash logo does not appear
 
@@ -103,13 +119,13 @@ The current complete screen uses `handleLogin`, `errorMessage`, and `setShowPass
 | `errorMessage` is assigned a value but never used | Render the error Text with `{errorMessage}` above Submit |
 | `setShowPassword` is assigned a value but never used | The eye button needs `onPress={() => setShowPassword((value) => !value)}` |
 
-Keep both Pressables: eye inside the password row, Submit below the error message. If several pieces are missing, use the [complete login file in Step 8](login.md#8-connect-the-existing-login-screen) to restore imports, state, inputs, both buttons, errors, and styles together.
+Keep both Pressables: eye inside the password row, Submit below the error message. Use `src/app/login.tsx` as the current implementation reference and [Step 8](login.md#8-connect-the-existing-login-screen) for provider wiring.
 
 ## Login icons are above the fields or the eye does not work
 
 Each icon and TextInput must share a `View` using `styles.inputRow`. Include the eye button in the password row too. Each TextInput should use `styles.inputText`; the row draws the surrounding border and background.
 
-The password input needs `secureTextEntry={!showPassword}`. Plain `secureTextEntry` keeps it masked regardless of the eye button's state. See [Login icons and password visibility](mobile-ui.md#login-icons-and-password-visibility) and the complete Step 8 example.
+The password input needs `secureTextEntry={!showPassword}`. Plain `secureTextEntry` keeps it masked regardless of the eye button's state. See [Login icons and password visibility](mobile-ui.md#login-icons-and-password-visibility).
 
 ## Expo cannot connect to port 5554
 
@@ -131,40 +147,24 @@ For an Android emulator, use `http://10.0.2.2:3000` in the root `.env.local`. Ve
 | Email or password is incorrect | Use the seeded account's credentials; reseeding an existing email does not change its password |
 | Relation users or sessions does not exist | Apply existing migrations in `backend/` |
 | Too many login attempts | Wait for the 15-minute window; the local in-memory limit resets if the API restarts |
-| Dashboard still shows Sign in after login | Confirm login opens `/dashboard`, then check `getCurrentUser()` and session storage |
+| Dashboard does not become available after login | Confirm login calls provider `signIn` and updates `user`; check token storage and guards |
 | Session expired | Sign in again to create a new session |
 | Token cannot be saved in a browser | Use Android/iOS for this native helper; implement web session storage separately |
 
 `/auth/me` returning `401` without a token is expected. `/health` proves database connectivity; the [login checklist](login.md#10-run-the-checks-and-test) verifies the actual sign-in, reopen, expiry, and logout behavior.
 
-## Why the Retry dependency is intentional
+## Session retry
 
-The dashboard's focus callback lists `[retry]`, but its body does not read the counter. ESLint therefore reports `react-hooks/exhaustive-deps` as an unnecessary dependency unless the intentional use is documented with a suppression.
-
-The counter acts as a trigger:
-
-1. Tapping Retry increments `retry`.
-2. React creates a new callback because that dependency changed.
-3. `useFocusEffect` reruns the account request while the dashboard is focused.
-
-Keep `[retry]` for this implementation. Removing it stops the Retry button from triggering another request. The current dashboard has these comments immediately above the dependency line:
-
-```tsx
-return () => { active = false; };
-
-// Changing retry reruns the account request when Retry is tapped.
-// eslint-disable-next-line react-hooks/exhaustive-deps
-}, [retry]));
-```
-
-The suppression applies to that line only and does not change runtime behavior. If the warning returns, check that the directive is immediately above `}, [retry]));`. A future refactor can use a shared loading function called by both focus and Retry, removing the counter and its suppression together.
+The dashboard no longer has a focus request, retry counter, or dependency suppression. AuthProvider owns session refresh. Root Retry calls `refreshSession()` after a failed session check. Restore API connectivity before retrying; a server failure is distinct from an expired token.
 
 ## Known login cleanup
 
 - In `backend/seed-user.mjs`, the minimum-length check is 8 while the error message says 15. The guide's example uses 15. Align the rule and message when editing the script.
 - `backend/package.json` includes an unnecessary `expo-secure-store` dependency. The mobile package already contains it. To remove the backend copy, run `npm uninstall expo-secure-store` inside `backend/`; keep the mobile dependency and its app config plugin.
-- Password reset and public registration remain future features. The former Forgot password styles have been removed from the current screen.
-- The dashboard retains the former welcome content, a `Home` tab title, and the component name `HomeScreen`. These can be updated without changing its `/dashboard` route.
+- Password reset, email registration, provider authentication, published policy URLs, browser session storage, and role-based permissions remain future work. Signup UI is present.
+- Home's Sign up button still has `accessibilityLabel="Search the market previews"` and a search-focus `onPress`; update these to match its signup action when editing the UI.
+- Workspace currently displays `Markets` as its heading.
+- Dashboard is now correctly named `DashboardScreen` with a `Dashboard` tab title, but still uses a light welcome card and hardcoded blue styles.
 
 These are code cleanup or future-feature items. Runtime connection errors still require a running API and a responsive emulator.
 
@@ -187,12 +187,12 @@ From the root:
 ```powershell
 npx expo lint
 npx tsc --noEmit
-node --check backend/server.mjs
-node --check backend/passwords.mjs
-node --check backend/seed-user.mjs
+Get-ChildItem -LiteralPath backend -Recurse -Filter *.mjs |
+  Where-Object { $_.FullName -notmatch '[\\/]node_modules[\\/]' } |
+  ForEach-Object { node --check $_.FullName }
 ```
 
-Root TypeScript checks do not typecheck the `.mjs` backend. Its syntax checks do not verify database connectivity or SQL execution. Use `/health` and inspect `pgmigrations` for those checks, then run the login behavior checklist. The intentional Retry dependency has a suppression limited to that line; it should not produce a lint warning in the current dashboard.
+Root TypeScript checks do not typecheck the `.mjs` backend. Syntax checks do not verify database connectivity or SQL execution. Use `/health`, inspect `pgmigrations`, and run the [login behavior checklist](login.md#10-run-the-checks-and-test). The recursive command includes the new app, database, middleware, and router modules while skipping dependencies.
 
 After mobile dependency or Expo configuration changes, diagnose compatibility from the root:
 

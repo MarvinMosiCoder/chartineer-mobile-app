@@ -1,16 +1,16 @@
 # Setup and daily development
 
-This guide documents Chartineer's existing setup as of October 10, 2026. Commands use PowerShell on Windows and npm. There are two independent packages: the Expo app at the root and the Node.js API in `backend/`.
+This guide documents Chartineer's existing setup as of October 12, 2026. Commands use PowerShell on Windows and npm. There are two independent packages: the Expo app at the root and the Node.js API in `backend/`.
 
 ## How the parts connect
 
 ```text
-Expo application -> HTTP API in backend/server.mjs -> PostgreSQL
+Expo application -> Express app and routers in backend/ -> PostgreSQL
 ```
 
 The backend holds the database credentials. The app calls `/auth/login`, saves its session token with SecureStore, and uses `/auth/me` and `/auth/logout` to restore the account and sign out. See the [login guide](login.md) for the files and request flow.
 
-The default route `/` opens the login screen directly, with email/password icons, an eye toggle, error feedback, and Submit. Successful login opens `/dashboard`, and logout returns to `/`. Android's custom opening logo is configured at `assets/images/system-logo/system-logo.png`; the splash stays visible while fonts load. See the [mobile UI guide](mobile-ui.md#logo-before-the-login-screen) for configuration and native build checks. A saved token does not currently skip login on a normal launch.
+The default route `/` opens public Home inside the tabs group. Login is `/login`, and signup UI is `/signup`, both outside the tabs folder. AuthProvider restores a saved session on startup; layout guards control access to authentication screens and Dashboard. Login updates provider state and normally returns to Home, where Dashboard becomes available. Android's custom splash uses `assets/images/system-logo/system-logo.png`; it stays visible while fonts and the initial session check load. See the [mobile UI guide](mobile-ui.md) and [backend module guide](backend.md).
 
 ## Prerequisites
 
@@ -191,7 +191,7 @@ For a physical phone, scan the QR code with compatible Expo Go and put the phone
 | Apply pending migrations | `backend/` | `npm run migrate -- up` |
 | Check lint | Root | `npx expo lint` |
 | Check TypeScript | Root | `npx tsc --noEmit` |
-| Check API syntax | Root | `node --check backend/server.mjs` |
+| Check backend syntax | Root | Use the recursive command in [Verification commands](troubleshooting.md#verification-commands) |
 | Check Android device | Any terminal with SDK tools on PATH | `adb devices` |
 | Refresh generated route types | Root | `npx expo customize tsconfig.json` |
 
@@ -217,4 +217,4 @@ These HTTP addresses are for local development. A deployed API should use HTTPS.
 
 Use the [login test checklist](login.md#10-run-the-checks-and-test) to check correct and incorrect credentials, session restoration, expiry, and logout. Keep PostgreSQL, the API, Expo, and the emulator running while testing.
 
-Public registration and password reset are future features. The current login screen has separate eye and Submit buttons, shows request errors, and uses the shared green primary color. Forgot password and its former local styles are absent.
+Login/signup follow system light/dark mode using their own theme palettes. Signup's Google/Apple buttons require its agreement checkbox, but provider and email registration remain UI placeholders; policy URLs are not published. Password reset is absent. See [Signup and agreement](mobile-ui.md#signup-and-agreement-checkbox) for the exact implemented behavior.
