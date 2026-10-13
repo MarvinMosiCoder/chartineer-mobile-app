@@ -1,6 +1,6 @@
 # Setup and daily development
 
-This guide documents Chartineer's existing setup as of October 12, 2026. Commands use PowerShell on Windows and npm. There are two independent packages: the Expo app at the root and the Node.js API in `backend/`.
+This guide documents Chartineer's existing setup as of October 13, 2026. Commands use PowerShell on Windows and npm. There are two independent packages: the Expo app at the root and the Node.js API in `backend/`.
 
 ## How the parts connect
 
@@ -10,7 +10,7 @@ Expo application -> Express app and routers in backend/ -> PostgreSQL
 
 The backend holds the database credentials. The app calls `/auth/login`, saves its session token with SecureStore, and uses `/auth/me` and `/auth/logout` to restore the account and sign out. See the [login guide](login.md) for the files and request flow.
 
-The default route `/` opens public Home inside the tabs group. Login is `/login`, and signup UI is `/signup`, both outside the tabs folder. AuthProvider restores a saved session on startup; layout guards control access to authentication screens and Dashboard. Login updates provider state and normally returns to Home, where Dashboard becomes available. Android's custom splash uses `assets/images/system-logo/system-logo.png`; it stays visible while fonts and the initial session check load. See the [mobile UI guide](mobile-ui.md) and [backend module guide](backend.md).
+The default route `/` opens public Home inside the tabs group. Login is `/login`, and signup UI is `/signup`, both outside the tabs folder. AuthProvider restores a saved session on startup; root guards control access to authentication screens, and Assets/Profile redirect signed-out visitors to login. Login updates provider state and normally returns to Home. Use the Profile tab at `/profile` for account details and logout; Home still has signed-in links to the removed `/dashboard` route. Android's custom splash uses `assets/images/system-logo/system-logo.png`; it stays visible while fonts and the initial session check load. See the [mobile UI guide](mobile-ui.md) and [backend module guide](backend.md).
 
 ## Prerequisites
 
@@ -65,6 +65,8 @@ npm ci
 ```
 
 Both packages have lockfiles. `npm ci` restores the recorded versions and replaces that package's existing `node_modules`. Add new mobile dependencies with `npx expo install <package>` at the root. Add server dependencies with npm inside `backend/`.
+
+The mobile lockfile includes NativeWind `4.2.7`, Tailwind CSS `3.4.17`, and `babel-preset-expo` `~55.0.8`. Styling also depends on the existing Reanimated and safe-area packages. Keep `babel.config.js`, `metro.config.js`, `tailwind.config.js`, `nativewind-env.d.ts`, and `src/styles/global.css` with the checkout; `app.json` explicitly uses Metro for web. See [NativeWind configuration](mobile-ui.md#nativewind-styling-and-configuration). After changing Babel or Metro configuration, stop Expo and restart with `npx expo start --clear`.
 
 ### 3. Create the PostgreSQL account and database
 

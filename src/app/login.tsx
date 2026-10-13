@@ -1,6 +1,5 @@
 import { useAuth } from "@/providers/auth-provider";
-import { fonts, spacing } from "@/styles/global";
-import { loginThemes, type LoginTheme } from "@/styles/login-theme";
+import { loginThemes } from "@/styles/login-theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Link, useFocusEffect } from "expo-router";
 import { setStatusBarStyle } from "expo-status-bar";
@@ -12,7 +11,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   useColorScheme,
@@ -25,7 +23,6 @@ export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const mode = colorScheme === "dark" ? "dark" : "light";
   const theme = loginThemes[mode];
-  const styles = themedStyles[mode];
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,6 +30,14 @@ export default function LoginScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const submitting = useRef(false);
+
+  const [notice, setNotice] = useState("");
+  function handleSocialLogin(provider: "Google" | "Apple") {
+    setErrorMessage("");
+    setNotice(
+      `${provider} login is not available yet. Use your email and password.`,
+    );
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -73,55 +78,57 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView
-      style={styles.screen}
+      className="flex-1 bg-[#F8FAFC] dark:bg-[#0B0D10]"
       edges={["top", "bottom", "left", "right"]}
     >
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerClassName="grow justify-center p-[24px]"
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.form}>
+          <View className="w-full max-w-[420px] self-center">
             <Image
               source={require("@/assets/images/system-logo/system-logo.png")}
-              style={styles.logoImage}
+              className="h-[120px] w-[120px] self-center"
               resizeMode="contain"
             />
 
-            <View style={styles.wordmark}>
+            <View className="mb-[10px] w-full px-[12px] py-[14px]">
               <Text
-                style={styles.wordmarkText}
+                className="text-center font-poppins-semibold text-[44px] tracking-[-1px] text-[#0F172A] dark:text-[#F2F0EA]"
                 accessibilityLabel="Chartineer"
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
-                Chart<Text style={styles.wordmarkAccent}>ineer</Text>
+                Chart<Text className="text-[#0F7058] dark:text-[#57CCA7]">ineer</Text>
               </Text>
             </View>
 
-            <Link href="/" dismissTo asChild>
-              <Pressable
-                style={styles.backButton}
-                accessibilityRole="button"
-                accessibilityLabel="Back to homepage"
-                disabled={isSubmitting}
-                accessibilityState={{ disabled: isSubmitting }}
-              >
-                <Ionicons
-                  name="arrow-back"
-                  size={22}
-                  color={theme.text}
-                  accessible={false}
-                />
-                <Text style={styles.backButtonText}>Back to home</Text>
-              </Pressable>
-            </Link>
+            <View className="flex-row items-center justify-between">
+              <Link href="/" dismissTo asChild>
+                <Pressable
+                  className="mb-[5px] min-h-[48px] flex-row items-center self-start"
+                  accessibilityRole="button"
+                  accessibilityLabel="Back to homepage"
+                  disabled={isSubmitting}
+                  accessibilityState={{ disabled: isSubmitting }}
+                >
+                  <Ionicons
+                    name="arrow-back"
+                    size={22}
+                    color={theme.text}
+                    accessible={false}
+                  />
+                </Pressable>
+              </Link>
+              <Text className="font-poppins-semibold text-[#0F7058] dark:text-[#57CCA7]">Sign up</Text>
+            </View>
 
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputRow}>
+            <Text className="mb-[8px] font-poppins-semibold text-[13px] text-[#0F172A] dark:text-[#F2F0EA]">Email</Text>
+            <View className="mb-[10px] min-h-[35px] flex-row items-center rounded-[14px] border border-[#CBD5E1] bg-white px-[14px] dark:border-[#404650] dark:bg-[#171A20]">
               <Ionicons
                 name="mail-outline"
                 size={22}
@@ -130,7 +137,7 @@ export default function LoginScreen() {
               />
 
               <TextInput
-                style={styles.inputText}
+                className="min-h-[35px] min-w-0 flex-1 px-[10px] py-[10px] font-poppins text-[16px] text-[#0F172A] dark:text-[#F2F0EA]"
                 accessibilityLabel="Email"
                 placeholder="you@example.com"
                 placeholderTextColor={theme.muted}
@@ -146,8 +153,8 @@ export default function LoginScreen() {
               />
             </View>
 
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputRow}>
+            <Text className="mb-[8px] font-poppins-semibold text-[13px] text-[#0F172A] dark:text-[#F2F0EA]">Password</Text>
+            <View className="mb-[10px] min-h-[35px] flex-row items-center rounded-[14px] border border-[#CBD5E1] bg-white px-[14px] dark:border-[#404650] dark:bg-[#171A20]">
               <Ionicons
                 name="lock-closed-outline"
                 size={22}
@@ -156,7 +163,7 @@ export default function LoginScreen() {
               />
 
               <TextInput
-                style={styles.inputText}
+                className="min-h-[35px] min-w-0 flex-1 px-[10px] py-[10px] font-poppins text-[16px] text-[#0F172A] dark:text-[#F2F0EA]"
                 accessibilityLabel="Password"
                 placeholder="Enter your password"
                 placeholderTextColor={theme.muted}
@@ -173,7 +180,7 @@ export default function LoginScreen() {
 
               <Pressable
                 onPress={() => setShowPassword((value) => !value)}
-                style={styles.eyeButton}
+                className="min-h-[48px] w-[48px] items-center justify-center"
                 disabled={isSubmitting}
                 accessibilityRole="button"
                 accessibilityLabel={
@@ -192,7 +199,7 @@ export default function LoginScreen() {
 
             {errorMessage ? (
               <Text
-                style={styles.errorText}
+                className="mb-[16px] font-poppins text-[14px] text-[#B91C1C] dark:text-[#FDA4AF]"
                 accessibilityLiveRegion="polite"
               >
                 {errorMessage}
@@ -201,7 +208,7 @@ export default function LoginScreen() {
 
             <Pressable
               onPress={handleLogin}
-              style={[styles.submit, isSubmitting && styles.disabled]}
+              className={`mt-[8px] min-h-[52px] items-center justify-center rounded-[12px] bg-[#0F7058] dark:bg-[#57CCA7] ${isSubmitting ? "opacity-60" : ""}`}
               disabled={isSubmitting}
               accessibilityRole="button"
               accessibilityLabel="Submit login"
@@ -213,129 +220,64 @@ export default function LoginScreen() {
               {isSubmitting ? (
                 <ActivityIndicator color={theme.onPrimary} />
               ) : (
-                <Text style={styles.submitText}>Log in</Text>
+                <Text className="font-poppins-semibold text-[16px] text-white dark:text-[#071B14]">Log in</Text>
               )}
             </Pressable>
+
+            <View className="my-[24px] flex-row items-center gap-[12px]">
+              <View className="h-[1px] flex-1 bg-[#CBD5E1] dark:bg-[#404650]" />
+              <Text className="font-poppins text-[12px] text-[#64748B] dark:text-[#A1A7B3]">Or continue with</Text>
+              <View className="h-[1px] flex-1 bg-[#CBD5E1] dark:bg-[#404650]" />
+            </View>
+
+            <View className="flex-row gap-[12px]">
+                <Pressable
+                  className="min-h-[30px] flex-1 flex-row items-center justify-center gap-[12px] rounded-[12px] border border-[#CBD5E1] bg-white px-[10px] py-[10px] active:opacity-70 dark:border-[#404650]"
+                  onPress={() => handleSocialLogin("Google")}
+                  disabled={isSubmitting}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isSubmitting }}
+                >
+                  <Image
+                    source={{
+                      uri: "https://developers.google.com/static/identity/images/g-logo.png",
+                    }}
+                    className="h-[20px] w-[20px]"
+                    resizeMode="contain"
+                    accessible={false}
+                  />
+                  <Text className="shrink text-center text-[14px] font-medium text-[#0F172A]">
+                  Google
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  className="min-h-[30px] flex-1 flex-row items-center justify-center gap-[12px] rounded-[12px] border border-[#CBD5E1] bg-black px-[10px] py-[10px] active:opacity-70 dark:border-[#404650]"
+                  onPress={() => handleSocialLogin("Apple")}
+                  disabled={isSubmitting}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isSubmitting }}
+                >
+                  <Ionicons
+                    name="logo-apple"
+                    size={24}
+                    color="#FFFFFF"
+                    accessible={false}
+                  />
+                  <Text className="shrink text-center text-[14px] font-medium text-white">
+                    Apple
+                  </Text>
+                </Pressable>
+            </View>
+
+            {notice ? (
+              <Text className="mt-[12px] text-center font-poppins text-[13px] leading-[20px] text-[#64748B] dark:text-[#A1A7B3]" accessibilityLiveRegion="polite">
+                {notice}
+              </Text>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-
-function createStyles(theme: LoginTheme) {
-  return StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: theme.background,
-    },
-    flex: {
-      flex: 1,
-    },
-    content: {
-      flexGrow: 1,
-      justifyContent: "center",
-      padding: spacing.lg,
-    },
-    form: {
-      width: "100%",
-      maxWidth: 420,
-      alignSelf: "center",
-    },
-    logoImage: {
-      width: 120,
-      height: 120,
-      alignSelf: "center",
-    },
-    wordmark: {
-      width: "100%",
-      paddingHorizontal: 12,
-      paddingVertical: 14,
-      marginBottom: 32,
-    },
-    wordmarkText: {
-      fontFamily: fonts.semibold,
-      fontSize: 44,
-      letterSpacing: -1,
-      color: theme.text,
-      textAlign: "center",
-    },
-    wordmarkAccent: {
-      color: theme.accent,
-    },
-    backButton: {
-      minHeight: 48,
-      flexDirection: "row",
-      alignItems: "center",
-      alignSelf: "flex-start",
-      gap: 8,
-      paddingHorizontal: 8,
-      marginBottom: 16,
-    },
-    backButtonText: {
-      color: theme.text,
-      fontFamily: fonts.regular,
-      fontSize: 14,
-    },
-    label: {
-      color: theme.text,
-      fontFamily: fonts.regular,
-      fontSize: 14,
-      marginBottom: spacing.sm,
-    },
-    inputRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      minHeight: 54,
-      backgroundColor: theme.surface,
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 12,
-      paddingHorizontal: spacing.md,
-      marginBottom: 20,
-    },
-    inputText: {
-      flex: 1,
-      minWidth: 0,
-      minHeight: 54,
-      paddingHorizontal: 12,
-      paddingVertical: 14,
-      fontSize: 16,
-      fontFamily: fonts.regular,
-      color: theme.text,
-    },
-    eyeButton: {
-      width: 48,
-      minHeight: 48,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    submit: {
-      minHeight: 52,
-      backgroundColor: theme.primary,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: spacing.sm,
-    },
-    submitText: {
-      color: theme.onPrimary,
-      fontFamily: fonts.semibold,
-      fontSize: 16,
-    },
-    disabled: {
-      opacity: 0.6,
-    },
-    errorText: {
-      color: theme.error,
-      fontFamily: fonts.regular,
-      fontSize: 14,
-      marginBottom: spacing.md,
-    },
-  });
-}
-
-const themedStyles = {
-  light: createStyles(loginThemes.light),
-  dark: createStyles(loginThemes.dark),
-};

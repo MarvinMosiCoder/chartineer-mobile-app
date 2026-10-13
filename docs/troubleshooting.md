@@ -64,9 +64,9 @@ CORS controls browser access to responses. Native clients do not use browser COR
 
 The current login helper stores tokens with native SecureStore. Browser login needs its own session-storage implementation even when CORS is configured correctly.
 
-## Login or dashboard route is rejected by TypeScript
+## Login or profile route is rejected by TypeScript
 
-If a Link or navigation call reports `ts(2345)`, confirm the current files: `(tabs)/index.tsx` owns `/`, `login.tsx` owns `/login`, `signup.tsx` owns `/signup`, and `(tabs)/dashboard.tsx` owns `/dashboard`, all under `src/app/`. Inspect `.expo/types/router.d.ts` for these routes. Entries such as `/../lib/auth` can indicate stale or incorrect route types.
+If a Link or navigation call reports `ts(2345)`, confirm the current files: `(tabs)/index.tsx` owns `/`, `login.tsx` owns `/login`, `signup.tsx` owns `/signup`, and `(tabs)/profile.tsx` owns `/profile`, all under `src/app/`. Dashboard's file has been deleted, but Home still links to `/dashboard` while signed in. Update those links and labels to Profile when fixing the UI. Inspect `.expo/types/router.d.ts` for stale routes; this workspace's generated types still include `/dashboard`, which currently lets those obsolete links pass typecheck.
 
 Regenerate types from the project root:
 
@@ -83,7 +83,7 @@ The installed SDK 55 route watcher showed a Windows path-handling problem after 
 
 Check `src/app/login.tsx`: it must call the `signIn` function from `useAuth()`, which stores the token and updates provider `user`. Calling only the helper from `src/lib/auth.ts` would leave navigation guards unaware of the new account.
 
-A normal launch at `/` opens public Home. AuthProvider checks a saved token during startup. A valid session enables Dashboard; no token or a 401 leaves the app signed out. Other session-check failures show root Retry. Login success normally returns to Home; use its Dashboard action or the Dashboard tab to open the account screen.
+A normal launch at `/` opens public Home. AuthProvider checks a saved token during startup. A valid session lets Profile show account details; no token or a 401 leaves the app signed out. Other session-check failures show root Retry. Login success normally returns to Home; use the Profile tab for the account screen until Home's obsolete Dashboard links are fixed.
 
 ## POP_TO warning or signup appears in tabs
 
@@ -123,7 +123,7 @@ Keep both Pressables: eye inside the password row, Submit below the error messag
 
 ## Login icons are above the fields or the eye does not work
 
-Each icon and TextInput must share a `View` using `styles.inputRow`. Include the eye button in the password row too. Each TextInput should use `styles.inputText`; the row draws the surrounding border and background.
+Each icon and TextInput must share a View with `flex-row items-center` utilities. Include the eye button in the password row too. Each TextInput uses `flex-1 min-w-0`; the row's utility classes draw the border and background. The old `styles.inputRow` and `styles.inputText` objects have been removed.
 
 The password input needs `secureTextEntry={!showPassword}`. Plain `secureTextEntry` keeps it masked regardless of the eye button's state. See [Login icons and password visibility](mobile-ui.md#login-icons-and-password-visibility).
 
@@ -147,7 +147,8 @@ For an Android emulator, use `http://10.0.2.2:3000` in the root `.env.local`. Ve
 | Email or password is incorrect | Use the seeded account's credentials; reseeding an existing email does not change its password |
 | Relation users or sessions does not exist | Apply existing migrations in `backend/` |
 | Too many login attempts | Wait for the 15-minute window; the local in-memory limit resets if the API restarts |
-| Dashboard does not become available after login | Confirm login calls provider `signIn` and updates `user`; check token storage and guards |
+| Profile redirects to login after sign-in | Confirm login calls provider `signIn` and updates `user`; check token storage and screen redirects |
+| Home's signed-in account link does not open a screen | It still targets removed `/dashboard`; use the Profile tab and update the link to `/profile` |
 | Session expired | Sign in again to create a new session |
 | Token cannot be saved in a browser | Use Android/iOS for this native helper; implement web session storage separately |
 
@@ -155,7 +156,7 @@ For an Android emulator, use `http://10.0.2.2:3000` in the root `.env.local`. Ve
 
 ## Session retry
 
-The dashboard no longer has a focus request, retry counter, or dependency suppression. AuthProvider owns session refresh. Root Retry calls `refreshSession()` after a failed session check. Restore API connectivity before retrying; a server failure is distinct from an expired token.
+AuthProvider owns session refresh; Profile reads the shared account without its own focus request. Root Retry calls `refreshSession()` after a failed session check. Restore API connectivity before retrying; a server failure is distinct from an expired token.
 
 ## Known login cleanup
 
@@ -164,7 +165,11 @@ The dashboard no longer has a focus request, retry counter, or dependency suppre
 - Password reset, email registration, provider authentication, published policy URLs, browser session storage, and role-based permissions remain future work. Signup UI is present.
 - Home's Sign up button still has `accessibilityLabel="Search the market previews"` and a search-focus `onPress`; update these to match its signup action when editing the UI.
 - Workspace currently displays `Markets` as its heading.
-- Dashboard is now correctly named `DashboardScreen` with a `Dashboard` tab title, but still uses a light welcome card and hardcoded blue styles.
+- Home's signed-in avatar and primary button still link to `/dashboard` after that screen was replaced by `/profile`; their labels still say Dashboard. Generated route types currently retain the deleted route, so typecheck does not expose this issue.
+- Profile is declared as `profileScreen`. Rename it to `ProfileScreen` when editing the implementation: the lowercase name causes four `react-hooks/rules-of-hooks` errors. Profile retains a light welcome card, generic font weight utilities, and a hardcoded blue logout button.
+- The tabs layout retains an empty `Tabs.Protected` block. Assets/Profile currently enforce signed-in access through screen redirects.
+- Login's `Sign up` text has no navigation handler. Its Google/Apple buttons only show availability notices.
+- Home still logs `user` to the console.
 
 These are code cleanup or future-feature items. Runtime connection errors still require a running API and a responsive emulator.
 
@@ -174,7 +179,13 @@ For a missing or incorrect remote, `fetch first`, `non-fast-forward`, or merge c
 
 ## Poppins does not appear
 
-Confirm the root layout loads the variant and that the Text or TextInput style uses its exact family alias. A surrounding View's font style does not set a global font for its text children. Restart Expo after installing a font package.
+Confirm the root layout loads the variant and that Text/TextInput uses `font-poppins`, `font-poppins-semibold`, or `font-poppins-bold` from `tailwind.config.js`, or the exact `fonts` alias in a style object. Generic `font-medium`, `font-semibold`, or `font-bold` alone does not select a Poppins family. ExtraBold is loaded but has no custom Tailwind utility. Restart Expo after installing a font package.
+
+## NativeWind classes do not apply
+
+Check the [styling configuration map](mobile-ui.md#nativewind-styling-and-configuration): Babel must use the NativeWind JSX import source and preset, Metro must wrap its Expo config with `withNativeWind`, and the root layout must import `src/styles/global.css`. Tailwind scans `src/` and uses `nativewind/preset`. Web uses Metro in `app.json`.
+
+If TypeScript rejects `className` or `contentContainerClassName`, confirm `nativewind-env.d.ts` references `nativewind/types` and remains in `tsconfig.json`'s include list. For ScrollView inner spacing, use `contentContainerClassName`. Keep conditional utilities as complete strings within Tailwind's content paths. Stop Expo and restart with `npx expo start --clear` after changing Babel, Metro, or Tailwind configuration. See [NativeWind installation](https://www.nativewind.dev/docs/getting-started/installation).
 
 ## Migration fails
 
@@ -193,6 +204,8 @@ Get-ChildItem -LiteralPath backend -Recurse -Filter *.mjs |
 ```
 
 Root TypeScript checks do not typecheck the `.mjs` backend. Syntax checks do not verify database connectivity or SQL execution. Use `/health`, inspect `pgmigrations`, and run the [login behavior checklist](login.md#10-run-the-checks-and-test). The recursive command includes the new app, database, middleware, and router modules while skipping dependencies.
+
+On October 13, 2026, `npx tsc --noEmit` passed against the existing generated route types, and `npx expo lint` failed with four hook-rule errors in `src/app/(tabs)/profile.tsx`. See [Known login cleanup](#known-login-cleanup). No emulator or database runtime verification was performed for this documentation update.
 
 After mobile dependency or Expo configuration changes, diagnose compatibility from the root:
 

@@ -1,40 +1,16 @@
-import { fonts } from "@/styles/global";
 import { useFocusEffect } from "expo-router";
 import { setStatusBarStyle } from "expo-status-bar";
 import { useCallback } from "react";
-import { StyleSheet, Text } from "react-native";
+import { Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
 export default function WorkspaceScreen() {
-  useFocusEffect(
-    useCallback(() => {
-      setStatusBarStyle("light");
-
-      return () => {
-        setStatusBarStyle("dark");
-      };
-    }, []),
-  );
-
-  return (
-    <SafeAreaView
-      style={styles.screen}
-      edges={["top", "left", "right"]}
-    >
-      <Text style={styles.title}>Markets</Text>
-    </SafeAreaView>
-  );
+  useFocusEffect(useCallback(() => {
+    setStatusBarStyle("light");
+    return () => {
+      setStatusBarStyle("dark");
+    };
+  }, []));
+  return <SafeAreaView className="flex-1 bg-[#000000] p-[24px]" edges={["top", "left", "right"]}>
+      <Text className="text-[#FFFFFF] font-poppins-semibold text-[28px]">Markets</Text>
+    </SafeAreaView>;
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#000000",
-    padding: 24,
-  },
-  title: {
-    color: "#FFFFFF",
-    fontFamily: fonts.semibold,
-    fontSize: 28,
-  },
-});

@@ -1,6 +1,6 @@
 # Login and saved sessions
 
-This guide describes the implemented authentication flow as of October 12, 2026. Source files are the implementation reference; the previous login-first screen and monolithic server examples have been replaced by the current file map and runtime steps.
+This guide describes the implemented authentication flow as of October 13, 2026. Source files are the implementation reference; the previous login-first screen and monolithic server examples have been replaced by the current file map and runtime steps.
 
 ## Current setup and runtime checklist
 
@@ -11,8 +11,8 @@ This guide describes the implemented authentication flow as of October 12, 2026.
 | Signup UI | `src/app/signup.tsx`, route `/signup`; registration is not connected |
 | Account state | `src/providers/auth-provider.tsx` |
 | Native requests/storage | `src/lib/auth.ts` |
-| Route guards | Root and tabs `_layout.tsx` files |
-| Dashboard | `src/app/(tabs)/dashboard.tsx`, account email and logout |
+| Route guards | Root `_layout.tsx` for login/signup; screen redirects in Assets and Profile |
+| Profile | `src/app/(tabs)/profile.tsx`, route `/profile`, account email and logout |
 | Backend | [Modular app and routes](backend.md) |
 | Password helpers | `backend/passwords.mjs`, salted scrypt hashing/verification |
 | Test accounts | `backend/seed-user.mjs` |
@@ -93,19 +93,21 @@ Restart Expo after changing it. Keep PostgreSQL credentials in `backend/.env`. U
 
 `AuthProvider` exposes `user`, `isLoading`, `error`, `refreshSession`, `signIn`, and `signOut`. It checks the saved token once on mount and rechecks a signed-in user's session when the app moves from background/inactive to active. A ref prevents session checks, login, and logout from overlapping.
 
-The root shows a startup indicator or session-error Retry before rendering navigation. A failed session refresh is not treated as an expired token. A 401 clears the account; other refresh failures show the root error state. Dashboard no longer performs its own focus request or uses a retry counter.
+The root shows a startup indicator or session-error Retry before rendering navigation. A failed session refresh is not treated as an expired token. A 401 clears the account; other refresh failures show the root error state. Profile reads the shared account; AuthProvider owns session refresh.
 
 ## 8. Connect the existing login screen
 
 `src/app/login.tsx` calls `useAuth()` and submits through provider `signIn(email, password)`. It validates empty fields, prevents duplicate presses, disables controls during submission, and displays errors. Success clears the password and visibility state.
 
-There is no explicit redirect to Dashboard in the handler. Updating `user` makes `Stack.Protected guard={!user}` remove login/signup from navigation; the app normally returns to public Home. Dashboard is then available through Home or its tab. Login's back link currently uses `/` with `dismissTo` in the root Stack.
+There is no explicit redirect in the handler. Updating `user` makes `Stack.Protected guard={!user}` remove login/signup from navigation; the app normally returns to public Home. Use the Profile tab for account details and logout. Home's signed-in avatar and primary action still target the deleted `/dashboard` route and need updating. Login's back link currently uses `/` with `dismissTo` in the root Stack.
+
+Google and Apple login buttons now appear below the email/password form. They show availability notices; email/password remains the connected login method. The `Sign up` text beside the back arrow is not a Link or button.
 
 For form/theme details, see [Mobile UI](mobile-ui.md#login-icons-and-password-visibility). Edit the current source rather than copying the old `src/app/index.tsx` login example.
 
-## 9. Dashboard, Assets, and logout
+## 9. Profile, Assets, and logout
 
-Dashboard is registered inside `Tabs.Protected guard={!!user}`. It reads the provider account, displays the email, and calls provider `signOut`. Its local pending state prevents duplicate logout and displays failures. Success clears `user`; guards remove Dashboard, normally leaving Home available.
+Profile replaces the deleted Dashboard screen. It is registered as a visible tab outside the empty `Tabs.Protected` block. Its screen redirects to `/login` when `user` is absent; while signed in it displays the account email and calls provider `signOut`. Its local pending state prevents duplicate logout and displays failures. Successful logout clears `user`, so Profile redirects to login; its tab remains visible.
 
 Assets is a visible public tab whose screen redirects to `/login` when `user` is absent. Signed-in Assets is still a placeholder. Neither navigation pattern replaces server-side authentication for future data requests.
 
@@ -113,20 +115,24 @@ Assets is a visible public tab whose screen redirects to `/login` when `user` is
 
 Run the [verification commands](troubleshooting.md#verification-commands), then test on a native device or emulator with the API and PostgreSQL running:
 
+The October 13 checks found four hook-rule lint errors from Profile's lowercase `profileScreen` name. Typecheck passed with generated route types that still include `/dashboard`; that does not validate the removed route. The table below is a device checklist, not a record of completed runtime tests.
+
 | Action | Expected behavior |
 | --- | --- |
-| Launch without a saved token | Public Home; login/signup available, Dashboard absent |
+| Launch without a saved token | Public Home; login/signup available; all five tabs visible |
 | Open login and submit empty fields | Validation message; no request |
 | Submit incorrect credentials | Incorrect-credentials error; remain signed out |
-| Submit correct credentials | Token saved, login removed by guards, Home normally shown; Dashboard available |
-| Open Dashboard | Account email and logout button |
+| Submit correct credentials | Token saved, login removed by guards, Home normally shown; Profile can render the account |
+| Open the Profile tab while signed in | Account email and logout button |
+| Use Home's signed-in account links | Known issue: they still target removed `/dashboard`; use the Profile tab |
+| Press Google or Apple on login | Availability notice; no provider authentication |
 | Reopen with a valid saved token | Startup verifies `/auth/me`; signed-in state restored without resubmitting credentials |
 | Resume a signed-in app | Provider rechecks the saved session |
-| Use an expired/revoked token | `/auth/me` returns 401; local token/account cleared; Dashboard unavailable |
+| Use an expired/revoked token | `/auth/me` returns 401; local token/account cleared; Profile/Assets redirect to login |
 | Stop API while checking a saved token | Session error with Retry; no false successful restoration |
-| Log out from Dashboard | Session revoked and local token cleared; Dashboard unavailable |
+| Log out from Profile | Session revoked and local token cleared; Profile redirects to login; tab remains visible |
 | Fail logout because API is offline | Error shown; local account remains so logout can be retried |
-| Select Assets while signed out | Login opens |
+| Select Assets or Profile while signed out | Login opens |
 | Return from signup to Home | Home opens without the earlier tab `POP_TO` warning |
 | Toggle signup checkbox | Google/Apple disabled when unchecked, enabled when checked, disabled again when unchecked |
 | Press an enabled signup method | Availability notice; no account is created |

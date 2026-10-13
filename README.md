@@ -1,11 +1,11 @@
 # Chartineer
 
-Expo SDK 55 mobile application with an Express 5 API and PostgreSQL database. Documentation reflects the current source as of October 12, 2026.
+Expo SDK 55 mobile application with NativeWind 4 styling, an Express 5 API, and a PostgreSQL database. Documentation reflects the current source as of October 13, 2026.
 
 ## Documentation
 
 - [Setup and daily development](docs/setup.md): dependencies, PostgreSQL, environment variables, and running both servers.
-- [Mobile screens, tabs, and themes](docs/mobile-ui.md): public Home, authentication screens, tab styling, signup consent, Poppins, and splash configuration.
+- [Mobile screens, tabs, and themes](docs/mobile-ui.md): public Home, Profile, NativeWind configuration, the center Home button, authentication screens, signup consent, Poppins, and splash configuration.
 - [Login and saved sessions](docs/login.md): test accounts, AuthProvider, session restoration, route guards, logout, and runtime checks.
 - [Backend routes and authentication middleware](docs/backend.md): module responsibilities, endpoints, and adding protected routes.
 - [Database migrations](docs/migrations.md): schema, applying changes, new migrations, and rollback behavior.
@@ -34,11 +34,13 @@ The computer uses `http://localhost:3000/health`. Set `EXPO_PUBLIC_API_URL=http:
 
 ## Current progress
 
-The default route `/` is public Home in `src/app/(tabs)/index.tsx`. Home has searchable sample markets, category cards, and account links. Home, Markets, Workspace, and Assets appear in the black bottom bar; Dashboard appears only while signed in. Markets, Workspace, and signed-in Assets are placeholders. Workspace currently renders the heading `Markets`.
+The default route `/` is public Home in `src/app/(tabs)/index.tsx`. Home has searchable sample markets, category cards, and account links. The bottom bar shows Markets, Workspace, Home, Assets, and Profile in that order. Home is a raised green circular button in the center. Markets, Workspace, and signed-in Assets are placeholders. Workspace currently renders the heading `Markets`.
 
-Login lives at `/login`, and signup at `/signup`, outside the tabs folder. Both follow the device's light/dark theme through `src/styles/login-theme.ts`. Tab icons are size 18, labels use Poppins Regular at size 11, and the bar has `paddingTop: 5`.
+Screens use NativeWind `className` utilities and ScrollView `contentContainerClassName`; `src/styles/global.ts` now exports `globalClasses` instead of `globalStyles`. Login lives at `/login`, and signup at `/signup`, outside the tabs folder. Both use `dark:` utilities for appearance and `src/styles/login-theme.ts` for icon, input, and spinner colors. The tab bar is height 96 with bottom safe-area padding; side icons are size 18 and the center Home icon is size 26. See [NativeWind styling](docs/mobile-ui.md#nativewind-styling-and-configuration).
 
-AuthProvider checks the saved native SecureStore token on startup and rechecks a signed-in session when the app resumes. Root guards make login/signup available only while signed out, and a tabs guard protects Dashboard. Selecting Assets while signed out redirects to `/login`. Sign-in updates provider state; guards remove login and return to available navigation, normally Home. Open Dashboard from Home or its tab. Logout revokes the session and updates the guards.
+AuthProvider checks the saved native SecureStore token on startup and rechecks a signed-in session when the app resumes. Root guards make login/signup available only while signed out. Assets and Profile remain visible tabs and redirect signed-out visitors to `/login`. Sign-in updates provider state; guards remove login and return to available navigation, normally Home. Profile at `/profile` displays the account email and logout button. Logout revokes the session and clears the local account.
+
+Dashboard's route file has been removed, but Home's signed-in avatar and primary button still target `/dashboard`. Use the Profile tab for account details and logout until those links are updated. Profile's lowercase `profileScreen` component name also currently causes four hook-rule lint errors; see [remaining cleanup](docs/troubleshooting.md#known-login-cleanup).
 
 Signup has Google and Apple buttons, an email field, and policy links. An initially unchecked agreement checkbox disables the provider buttons until selected. Provider and email signup currently show availability notices; no account creation or provider authentication is connected. Email signup is not gated by the checkbox. Terms and Privacy URLs are `null`, so their links show an unpublished notice.
 
@@ -58,4 +60,4 @@ Get-ChildItem -LiteralPath backend -Recurse -Filter *.mjs |
   ForEach-Object { node --check $_.FullName }
 ```
 
-These checks cover lint, mobile types, and backend syntax. They do not test SQL or emulator interactions. See [remaining cleanup](docs/troubleshooting.md#known-login-cleanup).
+On October 13, 2026, `npx tsc --noEmit` passed; `npx expo lint` reported four hook-rule errors in `profile.tsx`. Generated route types can still contain the removed Dashboard route, so a passing typecheck does not establish that Home's account links work. These checks do not test SQL or emulator interactions. See [remaining cleanup](docs/troubleshooting.md#known-login-cleanup).

@@ -85,7 +85,7 @@ Open each conflicted file. Review the local and incoming versions, keep the inte
 git add -- README.md
 ```
 
-Replace that example filename with each file you resolved. The current public Home is `src/app/(tabs)/index.tsx`; login and signup are `src/app/login.tsx` and `src/app/signup.tsx`. There is no root `src/app/index.tsx`. Dashboard remains `src/app/(tabs)/dashboard.tsx`, guarded for signed-in accounts. Preserve this structure when resolving conflicts and inspect both sides for new work. See [Routes and tabs](mobile-ui.md#routes-and-tabs).
+Replace that example filename with each file you resolved. The current public Home is `src/app/(tabs)/index.tsx`; login and signup are `src/app/login.tsx` and `src/app/signup.tsx`. There is no root `src/app/index.tsx`. Profile at `src/app/(tabs)/profile.tsx` replaces the deleted Dashboard file and redirects signed-out visitors to login. Preserve this structure and the NativeWind configuration files when resolving conflicts, and inspect both sides for new work. Home still contains obsolete `/dashboard` links; do not recreate that route just to match those links. See [Routes and tabs](mobile-ui.md#routes-and-tabs).
 
 Run the [project checks](troubleshooting.md#verification-commands), then complete the merge:
 
